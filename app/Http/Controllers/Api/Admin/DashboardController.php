@@ -6,7 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Product;
+use App\Models\Subscription;
+use App\Models\SubscriptionInvoice;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Carbon;
 
 class DashboardController extends Controller
 {
@@ -44,6 +47,25 @@ class DashboardController extends Controller
             'stats' => $stats,
             'recent_orders' => $recentOrders,
             'low_stock' => $lowStock,
+            'subscriptions' => $this->subscriptionSummary(),
         ]);
+    }
+
+    /** Yearly-subscription snapshot for the dashboard card. */
+    private function subscriptionSummary(): array
+    {
+        $today = Carbon::today();
+
+        return [
+            'active' => Subscription::where('status', 'active')->count(),
+            'past_due' => Subscription::where('status', 'past_due')->count(),
+            'arr' => (int) Subscription::where('status', 'active')->where('billing_period', 'yearly')->sum('price')
+                + (int) Subscription::where('status', 'active')->where('billing_period', 'monthly')->sum('price') * 12,
+            'renewals_due_soon' => Subscription::whereBetween('renews_at', [
+                $today->toDateString(),
+                $today->copy()->addDays(SubscriptionInvoice::BILL_AHEAD_DAYS)->toDateString(),
+            ])->whereNotIn('status', ['cancelled', 'expired'])->count(),
+            'outstanding' => (int) SubscriptionInvoice::whereIn('status', ['unpaid', 'awaiting'])->sum('amount'),
+        ];
     }
 }

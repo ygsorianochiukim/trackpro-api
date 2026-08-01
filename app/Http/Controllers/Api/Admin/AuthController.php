@@ -4,9 +4,9 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Support\PasswordVerifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -20,7 +20,10 @@ class AuthController extends Controller
         ]);
 
         $user = User::where('email', $data['email'])->first();
-        if (!$user || !Hash::check($data['password'], $user->password)) {
+        // PasswordVerifier, not Hash::check: a bcrypt hash written outside Laravel
+        // (a `$2a$` prefix from an imported dump) makes the hasher throw, turning
+        // a wrong-password case into a 500. See App\Support\PasswordVerifier.
+        if (!$user || !PasswordVerifier::check($user, $data['password'])) {
             throw ValidationException::withMessages([
                 'email' => ['Invalid credentials.'],
             ]);

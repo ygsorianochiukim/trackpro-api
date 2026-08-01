@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Product;
 use App\Services\PayMongoService;
+use App\Services\SubscriptionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -15,8 +16,10 @@ use Throwable;
 
 class OrderController extends Controller
 {
-    public function __construct(private PayMongoService $paymongo)
-    {
+    public function __construct(
+        private PayMongoService $paymongo,
+        private SubscriptionService $subscriptions,
+    ) {
     }
 
     /**
@@ -177,7 +180,13 @@ class OrderController extends Controller
             ]);
         }
 
-        return response()->json(['data' => $order->fresh(['items', 'payment'])]);
+        // Paying for the hardware starts the yearly tracking subscription.
+        $subscription = $this->subscriptions->provisionForOrder($order->fresh(['items']));
+
+        return response()->json([
+            'data' => $order->fresh(['items', 'payment']),
+            'subscription' => $subscription?->only(['reference', 'plan_name', 'price', 'status', 'renews_at']),
+        ]);
     }
 
     /** GET /api/customer/orders — authenticated customer's order history */

@@ -48,6 +48,12 @@ class Order extends Model
         return $this->hasMany(Payment::class);
     }
 
+    /** Tracking subscriptions provisioned by this order (see SubscriptionService). */
+    public function subscriptions(): HasMany
+    {
+        return $this->hasMany(Subscription::class);
+    }
+
     /** Generate a friendly reference, e.g. TP-000123 */
     public static function nextReference(): string
     {

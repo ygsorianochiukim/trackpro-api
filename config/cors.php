@@ -27,7 +27,17 @@ return [
         explode(',', (string) env('FRONTEND_URL', 'http://localhost:3000'))
     ))),
 
-    'allowed_origins_patterns' => [],
+    // Preview deployments (Vercel, Netlify, …) get a fresh random subdomain on
+    // every build, so they can never be listed in FRONTEND_URL. Set
+    // FRONTEND_URL_PATTERNS to a comma-separated list of delimited regexes
+    // matched against the request Origin, e.g.
+    //   FRONTEND_URL_PATTERNS="#^https://trackpro-[a-z0-9-]+\.vercel\.app$#"
+    // Leave empty in a locked-down production setup — patterns are broader than
+    // an explicit origin list, so only enable them if you want previews working.
+    'allowed_origins_patterns' => array_values(array_filter(array_map(
+        'trim',
+        explode(',', (string) env('FRONTEND_URL_PATTERNS', ''))
+    ))),
 
     'allowed_headers' => ['*'],
 

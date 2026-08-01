@@ -5,11 +5,16 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\Payment;
+use App\Services\SubscriptionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class PaymentController extends Controller
 {
+    public function __construct(private SubscriptionService $subscriptions)
+    {
+    }
+
     /** GET /api/admin/payments — list + totals. */
     public function index(Request $request): JsonResponse
     {
@@ -59,6 +64,9 @@ class PaymentController extends Controller
             ]);
         }
 
-        return response()->json(['data' => $order->fresh(['items', 'payments'])]);
+        // A paid order starts the customer's yearly tracking subscription.
+        $this->subscriptions->provisionForOrder($order->fresh(['items']));
+
+        return response()->json(['data' => $order->fresh(['items', 'payments', 'subscriptions'])]);
     }
 }

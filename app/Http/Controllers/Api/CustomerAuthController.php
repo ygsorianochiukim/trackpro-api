@@ -4,10 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
+use App\Support\PasswordVerifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
 class CustomerAuthController extends Controller
@@ -51,7 +51,8 @@ class CustomerAuthController extends Controller
         ]);
 
         $customer = Customer::where('email', $data['email'])->first();
-        if (!$customer || !Hash::check($data['password'], $customer->password)) {
+        // Same legacy-hash tolerance as the admin login — see PasswordVerifier.
+        if (!$customer || !PasswordVerifier::check($customer, $data['password'])) {
             throw ValidationException::withMessages([
                 'email' => ['The provided credentials are incorrect.'],
             ]);

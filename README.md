@@ -67,10 +67,34 @@ php artisan tinker
 | POST | `/api/customer/login` | none | Email + password; returns Sanctum token |
 | GET | `/api/customer/me` | Bearer | Current customer profile |
 | POST | `/api/customer/logout` | Bearer | Revoke current token |
+| POST | `/api/customer/password/forgot` | none | Email a reset link (always answers 200 — no account enumeration) |
+| POST | `/api/customer/password/reset` | none | Reset with the emailed token; revokes old tokens, returns a fresh one |
 | GET | `/api/customer/orders` | Bearer | Customer's order history |
-| POST | `/api/orders` | optional Bearer | Place an order; returns PayMongo `checkout_url` if configured |
-| GET | `/api/orders/{reference}` | none | Look up order by reference (e.g. `TP-000001`) |
-| POST | `/api/paymongo/webhook` | PayMongo signature | Receives `link.payment.paid`, `payment.failed`, etc. |
+| POST | `/api/orders` | Bearer (verified email) | Place an order; returns PayMongo `checkout_url` if configured |
+| GET | `/api/orders/{reference}` | Bearer | Look up own order by reference (e.g. `TP-000001`); 404 otherwise |
+| POST | `/api/paymongo/webhook` | PayMongo signature | Receives `link.payment.paid`, `payment.failed`, etc. — settles orders **and** subscription renewals |
+
+### Yearly subscriptions
+
+| Method | Path | Auth | Purpose |
+| --- | --- | --- | --- |
+| GET | `/api/subscription-plans` | none | Published yearly plans |
+| GET | `/api/customer/dashboard` | Bearer | Account overview: subscription, renewal date, amount due, recent orders |
+| GET | `/api/customer/subscriptions` | Bearer | Own subscriptions (statuses and due invoices refreshed on read) |
+| POST | `/api/customer/subscriptions` | Bearer | Subscribe to a plan (`plan_slug`, `quantity`) |
+| GET | `/api/customer/subscriptions/{ref}` | Bearer | One subscription with its invoices |
+| POST | `/api/customer/subscriptions/{ref}/renew` | Bearer | Raise/reuse the next renewal invoice; returns `checkout_url` when PayMongo is configured |
+| POST | `/api/customer/subscriptions/{ref}/cancel` | Bearer | Stop auto-renewal and void open invoices |
+| GET | `/api/customer/invoices` | Bearer | Billing history + outstanding total |
+| POST | `/api/customer/invoices/{ref}/pay` | Bearer | Pay a renewal (PayMongo link, or the temporary stand-in when unconfigured) |
+
+A subscription is created automatically when an order becomes paid
+(`SubscriptionService::provisionForOrder`), priced at the ordered products'
+monthly tracking fee × 12, or the default plan's price when the order carries no
+fee. `SUBSCRIPTION_FIRST_YEAR_INCLUDED` (default `true`) decides whether year one
+is bundled with the hardware or invoiced straight away. The nightly
+`php artisan subscriptions:bill` raises renewal invoices 30 days ahead and moves
+lapsed subscriptions to `past_due` / `expired`.
 
 ### Frontend usage example
 
