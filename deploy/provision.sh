@@ -63,11 +63,14 @@ if ! command -v composer >/dev/null; then
   "$PHP" /tmp/composer-setup.php --quiet --install-dir=/usr/local/bin --filename=composer
   rm -f /tmp/composer-setup.php
 fi
-node_major="$(node -v 2>/dev/null | sed -E 's/^v([0-9]+).*/\1/' || echo 0)"
-if [[ "${node_major:-0}" -lt 22 ]]; then
+node_major="$(node -v 2>/dev/null | sed -E 's/^v([0-9]+).*/\1/')"
+if [[ "${node_major:-0}" -lt 22 ]] || ! command -v npm >/dev/null; then
+  echo "node ${node_major:-none}, npm $(command -v npm >/dev/null && echo present || echo missing) — installing Node 22 from NodeSource"
   curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
   apt-get install -y -qq nodejs
 fi
+command -v npm >/dev/null || die "npm still missing after installing Node — check apt output above"
+echo "node $(node -v), npm $(npm -v)"
 command -v git >/dev/null || apt-get install -y -qq git
 
 log "Folders under $ROOT"
