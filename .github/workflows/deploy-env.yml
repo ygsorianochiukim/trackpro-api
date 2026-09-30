@@ -1,0 +1,125 @@
+name: Deploy one environment
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    concurrency: trackpro-${{ inputs.environment }}
+    env:
+      ENV_NAME: ${{ inputs.environment }}
+      SSH_HOST: ${{ vars.SSH_HOST || '148.113.192.33' }}
+      SSH_USER: ${{ vars.SSH_USER || 'deploy' }}
+      SSH_PORT: ${{ vars.SSH_PORT || '22' }}
+    steps:
+      - name: Check setup
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          missing=()
+          [ -n "$SSH_PRIVATE_KEY" ] || missing+=(SSH_PRIVATE_KEY)
+          [ -n "$SSH_KNOWN_HOSTS" ] || missing+=(SSH_KNOWN_HOSTS)
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing secrets: ${missing[*]}"
+            exit 1
+          fi
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts
+
+      # Each named secret (or variable) overrides one key; empty ones are skipped.
+      # API_ENV_OVERRIDES / WEB_ENV_OVERRIDES are free-form KEY=VALUE lines, applied last.
+      - name: Render .env overrides
+        env:
+          MAIL_MAILER: ${{ secrets.MAIL_MAILER || vars.MAIL_MAILER }}
+          MAIL_SCHEME: ${{ secrets.MAIL_SCHEME || vars.MAIL_SCHEME }}
+          MAIL_HOST: ${{ secrets.MAIL_HOST || vars.MAIL_HOST }}
+          MAIL_PORT: ${{ secrets.MAIL_PORT || vars.MAIL_PORT }}
+          MAIL_USERNAME: ${{ secrets.MAIL_USERNAME || vars.MAIL_USERNAME }}
+          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+          MAIL_FROM_ADDRESS: ${{ secrets.MAIL_FROM_ADDRESS || vars.MAIL_FROM_ADDRESS }}
+          MAIL_FROM_NAME: ${{ secrets.MAIL_FROM_NAME || vars.MAIL_FROM_NAME }}
+          PAYMONGO_SECRET_KEY: ${{ secrets.PAYMONGO_SECRET_KEY }}
+          PAYMONGO_PUBLIC_KEY: ${{ secrets.PAYMONGO_PUBLIC_KEY || vars.PAYMONGO_PUBLIC_KEY }}
+          PAYMONGO_WEBHOOK_SECRET: ${{ secrets.PAYMONGO_WEBHOOK_SECRET }}
+          FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+          API_ENV_OVERRIDES: ${{ secrets.API_ENV_OVERRIDES }}
+          NEXT_PUBLIC_WEB3FORMS_KEY: ${{ secrets.NEXT_PUBLIC_WEB3FORMS_KEY || vars.NEXT_PUBLIC_WEB3FORMS_KEY }}
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
+          API_URL: ${{ vars.API_URL }}
+          SERVER_ACTIONS_ALLOWED_ORIGINS: ${{ vars.SERVER_ACTIONS_ALLOWED_ORIGINS }}
+          WEB_ENV_OVERRIDES: ${{ secrets.WEB_ENV_OVERRIDES }}
+        run: |
+          set -euo pipefail
+          umask 077
+
+          quote() {
+            local v=$1
+            if [[ "$v" =~ [[:space:]\#\"\'\$\\] ]]; then
+              if [[ "$v" != *"'"* ]]; then
+                v="'$v'"
+              else
+                v=${v//\\/\\\\}; v=${v//\"/\\\"}; v="\"$v\""
+              fi
+            fi
+            printf '%s' "$v"
+          }
+          emit() {
+            local out=$1; shift
+            for key in "$@"; do
+              local value="${!key:-}"
+              [ -n "$value" ] && printf '%s=%s\n' "$key" "$(quote "$value")" >> "$out"
+            done
+            return 0
+          }
+
+          : > api.env.overrides
+          : > web.env.overrides
+          emit api.env.overrides MAIL_MAILER MAIL_SCHEME MAIL_HOST MAIL_PORT MAIL_USERNAME MAIL_PASSWORD \
+            MAIL_FROM_ADDRESS MAIL_FROM_NAME PAYMONGO_SECRET_KEY PAYMONGO_PUBLIC_KEY PAYMONGO_WEBHOOK_SECRET FRONTEND_URL
+          printf '%s\n' "$API_ENV_OVERRIDES" | tr -d '\r' | grep -E '^[A-Za-z_][A-Za-z0-9_]*=' >> api.env.overrides || true
+          emit web.env.overrides NEXT_PUBLIC_WEB3FORMS_KEY NEXT_PUBLIC_API_URL API_URL SERVER_ACTIONS_ALLOWED_ORIGINS
+          printf '%s\n' "$WEB_ENV_OVERRIDES" | tr -d '\r' | grep -E '^[A-Za-z_][A-Za-z0-9_]*=' >> web.env.overrides || true
+
+          echo "API keys set from GitHub:"; cut -d= -f1 api.env.overrides | sort -u | sed 's/^/  /'
+          echo "Web keys set from GitHub:"; cut -d= -f1 web.env.overrides | sort -u | sed 's/^/  /'
+
+      - name: Deploy
+        run: |
+          set -euo pipefail
+          opts="-i $HOME/.ssh/deploy_key -o Port=$SSH_PORT -o BatchMode=yes"
+          target="$SSH_USER@$SSH_HOST"
+          dir=$(ssh $opts "$target" 'mktemp -d')
+          scp $opts api.env.overrides web.env.overrides "$target:$dir/"
+          rm -f api.env.overrides web.env.overrides
+          ssh $opts "$target" "
+            trap 'rm -rf $dir' EXIT
+            API_OVERRIDES=$dir/api.env.overrides WEB_OVERRIDES=$dir/web.env.overrides \
+              bash /var/www/trackpro/$ENV_NAME/api/deploy/deploy.sh $ENV_NAME
+          "
+
+      - name: Smoke test
+        run: |
+          set -euo pipefail
+          case "$ENV_NAME" in
+            production) api=https://api.trackpro-gps.store; web=https://trackpro-gps.store ;;
+            staging)    api=https://staging-api.trackpro-gps.store; web=https://staging.trackpro-gps.store ;;
+          esac
+          code=$(curl -s -o /dev/null -w '%{http_code}' --retry 3 --retry-delay 5 "$api/up")
+          echo "GET $api/up -> $code"; [ "$code" = 200 ]
+          health=$(curl -s --retry 3 --retry-delay 5 "$web/api/health")
+          echo "$health" | head -c 300; echo
+          echo "$health" | grep -q '"ok":true'

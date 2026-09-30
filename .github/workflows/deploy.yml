@@ -1,0 +1,45 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Where to deploy
+        type: choice
+        options: [both, staging, production]
+        default: both
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, pdo_sqlite, bcmath, intl
+          coverage: none
+      - run: composer install --no-interaction --no-progress --prefer-dist
+      - run: cp .env.example .env && php artisan key:generate
+      - run: php artisan test
+
+  staging:
+    needs: test
+    if: github.event_name == 'push' || inputs.environment != 'production'
+    uses: ./.github/workflows/deploy-env.yml
+    with:
+      environment: staging
+    secrets: inherit
+
+  production:
+    needs: [test, staging]
+    if: >-
+      always() && needs.test.result == 'success'
+      && (needs.staging.result == 'success' || needs.staging.result == 'skipped')
+      && (github.event_name == 'push' || inputs.environment != 'staging')
+    uses: ./.github/workflows/deploy-env.yml
+    with:
+      environment: production
+    secrets: inherit

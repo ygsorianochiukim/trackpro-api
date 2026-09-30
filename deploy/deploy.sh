@@ -10,6 +10,36 @@ PHP="php$PHP_VERSION"
 
 log() { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
 
+# Merge KEY=VALUE lines from $1 into env file $2: replace existing keys in
+# place, append new ones, leave every other line alone. Logs names only.
+apply_overrides() {
+  local src=$1 dest=$2 tmp
+  [[ -n "$src" && -s "$src" ]] || return 0
+  tmp="$(mktemp "$dest.XXXXXX")"
+  awk '
+    function key(line) { return match(line, /^[A-Za-z_][A-Za-z0-9_]*=/) ? substr(line, 1, RLENGTH - 1) : "" }
+    NR == FNR { k = key($0); if (k != "") { if (!(k in val)) order[++n] = k; val[k] = $0 }; next }
+    { k = key($0) }
+    k != "" && (k in val) { if (!(k in done)) { print val[k]; done[k] = 1 }; next }
+    { print }
+    END { for (i = 1; i <= n; i++) if (!(order[i] in done)) print val[order[i]] }
+  ' "$src" "$dest" > "$tmp"
+  if cmp -s "$tmp" "$dest"; then
+    echo "$(basename "$dest") already up to date"
+  else
+    diff "$dest" "$tmp" | sed -nE 's/^> ([A-Za-z_][A-Za-z0-9_]*)=.*/  changed \1/p' | sort -u || true
+    cp -p "$dest" "$dest.bak"
+    cat "$tmp" > "$dest"
+  fi
+  rm -f "$tmp"
+}
+
+if [[ -n "${API_OVERRIDES:-}${WEB_OVERRIDES:-}" ]]; then
+  log "Applying .env overrides from GitHub"
+  apply_overrides "${API_OVERRIDES:-}" "$ROOT/api/.env"
+  apply_overrides "${WEB_OVERRIDES:-}" "$ROOT/web/.env.local"
+fi
+
 update() {
   local dir=$1 branch
   branch="$(git -C "$dir" rev-parse --abbrev-ref HEAD)"

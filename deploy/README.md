@@ -52,7 +52,42 @@ mysql trackpro_production < hostinger-dump.sql
 
 Staging can be seeded: `cd /var/www/trackpro/staging/api && php8.5 artisan db:seed --force`.
 
-## Every deploy (as `deploy`)
+## GitHub Actions
+
+A push to `main` runs the tests, then deploys **staging**, then **production**
+(`.github/workflows/deploy.yml`). **Actions → Deploy → Run workflow** redeploys
+without a code change — pick `both`, `staging` or `production`. Use it after a
+change to the website repo too: every deploy pulls both repos.
+
+Repository secrets `SSH_PRIVATE_KEY` and `SSH_KNOWN_HOSTS` are already set
+(the key logs in as `deploy` only).
+
+### Overriding `.env` values
+
+Add these under **Settings → Environments → `production` / `staging` → secrets**.
+Each one overwrites that key on the server on the next deploy; empty ones are
+ignored, and nothing else in the file changes (a `.env.bak` is kept).
+
+| Secret | Goes to |
+|---|---|
+| `MAIL_MAILER` (`smtp`), `MAIL_SCHEME`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME` | API `.env` |
+| `PAYMONGO_SECRET_KEY`, `PAYMONGO_PUBLIC_KEY`, `PAYMONGO_WEBHOOK_SECRET` | API `.env` |
+| `API_ENV_OVERRIDES` — any `KEY=VALUE` lines, one per line | API `.env` |
+| `NEXT_PUBLIC_WEB3FORMS_KEY` | website `.env.local` |
+| `WEB_ENV_OVERRIDES` — any `KEY=VALUE` lines | website `.env.local` |
+
+Non-secret values can be environment **variables** instead of secrets
+(`MAIL_HOST`, `MAIL_PORT`, `FRONTEND_URL`, `API_URL`, `NEXT_PUBLIC_API_URL`,
+`SERVER_ACTIONS_ALLOWED_ORIGINS`, …). Values with spaces or symbols are quoted
+for you. The log lists the key names that changed, never the values.
+
+Gmail example (production environment): `MAIL_MAILER=smtp`, `MAIL_HOST=smtp.gmail.com`,
+`MAIL_PORT=587`, `MAIL_USERNAME=you@gmail.com`, `MAIL_PASSWORD=<16-char app password>`,
+`MAIL_FROM_ADDRESS=you@gmail.com`.
+
+`APP_KEY`, `DB_PASSWORD` and `ADMIN_PASSWORD` never leave the server.
+
+## Every deploy by hand (as `deploy`)
 
 ```bash
 ssh deploy@148.113.192.33
