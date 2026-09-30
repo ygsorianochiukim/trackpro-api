@@ -52,6 +52,7 @@ log "API"
 update "$ROOT/api"
 cd "$ROOT/api"
 composer install --no-dev --optimize-autoloader --no-interaction -q
+find storage/logs -type f -user "$(id -u)" -exec chmod g+w {} + 2>/dev/null || true
 "$PHP" artisan migrate --force --no-interaction
 "$PHP" artisan optimize:clear -q
 "$PHP" artisan config:cache
