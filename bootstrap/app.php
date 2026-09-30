@@ -13,6 +13,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Behind Caddy → nginx on the VPS; nginx only listens on the docker bridge.
+        $middleware->trustProxies(at: '*');
+
         // Admin API guard — Bearer token carrying the 'admin' ability.
         $middleware->alias([
             'admin' => \App\Http\Middleware\EnsureAdminToken::class,
