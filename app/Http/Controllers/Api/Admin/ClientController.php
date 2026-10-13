@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
 
 /**
  * Admin → Clients: one place for a customer's profile, orders, subscription
@@ -53,6 +55,44 @@ class ClientController extends Controller
                 'new_this_month' => Customer::where('created_at', '>=', now()->startOfMonth())->count(),
             ],
         ]);
+    }
+
+    /**
+     * POST /api/admin/clients — create a client account by hand (walk-ins,
+     * phone orders, clients migrated from paper records).
+     *
+     * The admin vouches for the email, so it is marked verified. If no password
+     * is given a random one is set; with `send_invite` the client is emailed a
+     * password-reset link so they can choose their own and sign in.
+     */
+    public function store(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:120'],
+            'email' => ['required', 'email', 'max:120', 'unique:customers,email'],
+            'phone' => ['nullable', 'string', 'max:32'],
+            'company' => ['nullable', 'string', 'max:160'],
+            'fleet_size' => ['nullable', 'string', 'max:32'],
+            'vehicle_info' => ['nullable', 'string', 'max:2000'],
+            'password' => ['nullable', 'string', 'min:6'],
+            'send_invite' => ['boolean'],
+        ]);
+
+        $sendInvite = (bool) ($data['send_invite'] ?? false);
+        unset($data['send_invite']);
+        $data['password'] = $data['password'] ?? Str::random(32);
+
+        $customer = Customer::create($data);
+        $customer->markEmailAsVerified();
+
+        if ($sendInvite) {
+            Password::broker('customers')->sendResetLink(['email' => $customer->email]);
+        }
+
+        return response()->json([
+            'data' => $this->summary($customer),
+            'invite_sent' => $sendInvite,
+        ], 201);
     }
 
     /** GET /api/admin/clients/{customer} — profile + orders + subscriptions + billing. */

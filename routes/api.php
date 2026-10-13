@@ -146,6 +146,7 @@ Route::prefix('admin')->group(function () {
 
         // Clients — profile, orders, subscription plan and billing per customer
         Route::get('/clients', [AdminClientController::class, 'index']);
+        Route::post('/clients', [AdminClientController::class, 'store']);
         Route::get('/clients/{customer}', [AdminClientController::class, 'show']);
 
         // Customer directory (used by the subscription create form)

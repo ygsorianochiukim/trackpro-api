@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\Customer;
 use App\Models\User;
+use App\Notifications\CustomerResetPassword;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -58,6 +60,54 @@ class ClientsTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.vehicle_info', '2 Isuzu trucks, 1 L300')
             ->assertJsonStructure(['data' => ['orders', 'subscriptions', 'invoices', 'totals']]);
+    }
+
+    public function test_admin_can_add_a_client_manually(): void
+    {
+        Notification::fake();
+        $token = User::factory()->create()->createToken('admin', ['admin'])->plainTextToken;
+
+        $this->withToken($token)->postJson('/api/admin/clients', [
+            'name' => 'Maria Santos',
+            'email' => 'maria@example.com',
+            'company' => 'Santos Logistics',
+            'send_invite' => true,
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.email', 'maria@example.com')
+            ->assertJsonPath('data.email_verified', true)
+            ->assertJsonPath('invite_sent', true);
+
+        $c = Customer::where('email', 'maria@example.com')->firstOrFail();
+        $this->assertSame('Santos Logistics', $c->company);
+        Notification::assertSentTo($c, CustomerResetPassword::class);
+
+        // Duplicate email is rejected
+        $this->withToken($token)->postJson('/api/admin/clients', ['name' => 'Dup', 'email' => 'maria@example.com'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('email');
+    }
+
+    public function test_manually_added_client_can_sign_in_with_admin_set_password(): void
+    {
+        $token = User::factory()->create()->createToken('admin', ['admin'])->plainTextToken;
+
+        $this->withToken($token)->postJson('/api/admin/clients', [
+            'name' => 'Pedro Reyes',
+            'email' => 'pedro@example.com',
+            'password' => 'secret123',
+        ])->assertCreated()->assertJsonPath('invite_sent', false);
+
+        $this->postJson('/api/customer/login', ['email' => 'pedro@example.com', 'password' => 'secret123'])
+            ->assertOk();
+    }
+
+    public function test_customers_cannot_add_clients(): void
+    {
+        $token = $this->signup()->json('token');
+
+        $this->withToken($token)->postJson('/api/admin/clients', ['name' => 'X', 'email' => 'x@example.com'])
+            ->assertForbidden();
     }
 
     public function test_customers_cannot_reach_admin_clients(): void
