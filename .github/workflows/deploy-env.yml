@@ -41,24 +41,52 @@ jobs:
           printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts
 
       # Each named secret (or variable) overrides one key; empty ones are skipped.
+      # Keys with a trailing `|| '...'` fall back to that default when neither is set.
       # API_ENV_OVERRIDES / WEB_ENV_OVERRIDES are free-form KEY=VALUE lines, applied last.
       - name: Render .env overrides
         env:
-          MAIL_MAILER: ${{ secrets.MAIL_MAILER || vars.MAIL_MAILER }}
+          APP_NAME: ${{ vars.APP_NAME || 'TrackPro API' }}
+          APP_ENV: ${{ vars.APP_ENV || inputs.environment }}
+          APP_KEY: ${{ secrets.APP_KEY }}
+          APP_DEBUG: ${{ vars.APP_DEBUG || 'false' }}
+          APP_URL: ${{ vars.APP_URL || (inputs.environment == 'production' && 'https://api.trackpro-gps.store' || 'https://staging-api.trackpro-gps.store') }}
+          LOG_LEVEL: ${{ vars.LOG_LEVEL || (inputs.environment == 'production' && 'error' || 'debug') }}
+          DB_CONNECTION: ${{ vars.DB_CONNECTION || 'mysql' }}
+          DB_HOST: ${{ secrets.DB_HOST || vars.DB_HOST || '127.0.0.1' }}
+          DB_PORT: ${{ vars.DB_PORT || '3306' }}
+          DB_DATABASE: ${{ secrets.DB_DATABASE || vars.DB_DATABASE }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME || vars.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          SESSION_DRIVER: ${{ vars.SESSION_DRIVER || 'database' }}
+          SESSION_DOMAIN: ${{ vars.SESSION_DOMAIN }}
+          QUEUE_CONNECTION: ${{ vars.QUEUE_CONNECTION || 'database' }}
+          CACHE_STORE: ${{ vars.CACHE_STORE || 'database' }}
+          MAIL_MAILER: ${{ secrets.MAIL_MAILER || vars.MAIL_MAILER || 'smtp' }}
           MAIL_SCHEME: ${{ secrets.MAIL_SCHEME || vars.MAIL_SCHEME }}
-          MAIL_HOST: ${{ secrets.MAIL_HOST || vars.MAIL_HOST }}
-          MAIL_PORT: ${{ secrets.MAIL_PORT || vars.MAIL_PORT }}
+          MAIL_HOST: ${{ secrets.MAIL_HOST || vars.MAIL_HOST || 'smtp.gmail.com' }}
+          MAIL_PORT: ${{ secrets.MAIL_PORT || vars.MAIL_PORT || '587' }}
           MAIL_USERNAME: ${{ secrets.MAIL_USERNAME || vars.MAIL_USERNAME }}
           MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
-          MAIL_FROM_ADDRESS: ${{ secrets.MAIL_FROM_ADDRESS || vars.MAIL_FROM_ADDRESS }}
-          MAIL_FROM_NAME: ${{ secrets.MAIL_FROM_NAME || vars.MAIL_FROM_NAME }}
+          MAIL_FROM_ADDRESS: ${{ secrets.MAIL_FROM_ADDRESS || vars.MAIL_FROM_ADDRESS || 'trackproph@gmail.com' }}
+          MAIL_FROM_NAME: ${{ secrets.MAIL_FROM_NAME || vars.MAIL_FROM_NAME || 'TrackPro GPS' }}
+          MEDIA_DISK: ${{ vars.MEDIA_DISK || 'public' }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ vars.R2_BUCKET || 'trackpro' }}
+          R2_ENDPOINT: ${{ vars.R2_ENDPOINT || 'https://9aac9262f7f5fed1e7ef725139273078.r2.cloudflarestorage.com' }}
+          R2_PUBLIC_URL: ${{ vars.R2_PUBLIC_URL || 'https://media.trackprogps.com' }}
           PAYMONGO_SECRET_KEY: ${{ secrets.PAYMONGO_SECRET_KEY }}
           PAYMONGO_PUBLIC_KEY: ${{ secrets.PAYMONGO_PUBLIC_KEY || vars.PAYMONGO_PUBLIC_KEY }}
           PAYMONGO_WEBHOOK_SECRET: ${{ secrets.PAYMONGO_WEBHOOK_SECRET }}
-          FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+          FRONTEND_URL: ${{ vars.FRONTEND_URL || (inputs.environment == 'production' && 'https://trackpro-gps.store' || 'https://staging.trackpro-gps.store') }}
+          FRONTEND_URL_PATTERNS: ${{ vars.FRONTEND_URL_PATTERNS }}
+          ADMIN_NAME: ${{ vars.ADMIN_NAME || 'TrackPro Admin' }}
+          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL || vars.ADMIN_EMAIL || 'admin@trackprogps.com' }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          SUBSCRIPTION_FIRST_YEAR_INCLUDED: ${{ vars.SUBSCRIPTION_FIRST_YEAR_INCLUDED || 'true' }}
           API_ENV_OVERRIDES: ${{ secrets.API_ENV_OVERRIDES }}
           NEXT_PUBLIC_WEB3FORMS_KEY: ${{ secrets.NEXT_PUBLIC_WEB3FORMS_KEY || vars.NEXT_PUBLIC_WEB3FORMS_KEY }}
-          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL || (inputs.environment == 'production' && 'https://api.trackpro-gps.store' || 'https://staging-api.trackpro-gps.store') }}
           API_URL: ${{ vars.API_URL }}
           SERVER_ACTIONS_ALLOWED_ORIGINS: ${{ vars.SERVER_ACTIONS_ALLOWED_ORIGINS }}
           WEB_ENV_OVERRIDES: ${{ secrets.WEB_ENV_OVERRIDES }}
@@ -88,8 +116,13 @@ jobs:
 
           : > api.env.overrides
           : > web.env.overrides
-          emit api.env.overrides MAIL_MAILER MAIL_SCHEME MAIL_HOST MAIL_PORT MAIL_USERNAME MAIL_PASSWORD \
-            MAIL_FROM_ADDRESS MAIL_FROM_NAME PAYMONGO_SECRET_KEY PAYMONGO_PUBLIC_KEY PAYMONGO_WEBHOOK_SECRET FRONTEND_URL
+          emit api.env.overrides APP_NAME APP_ENV APP_KEY APP_DEBUG APP_URL LOG_LEVEL \
+            DB_CONNECTION DB_HOST DB_PORT DB_DATABASE DB_USERNAME DB_PASSWORD \
+            SESSION_DRIVER SESSION_DOMAIN QUEUE_CONNECTION CACHE_STORE \
+            MAIL_MAILER MAIL_SCHEME MAIL_HOST MAIL_PORT MAIL_USERNAME MAIL_PASSWORD MAIL_FROM_ADDRESS MAIL_FROM_NAME \
+            MEDIA_DISK R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_BUCKET R2_ENDPOINT R2_PUBLIC_URL \
+            PAYMONGO_SECRET_KEY PAYMONGO_PUBLIC_KEY PAYMONGO_WEBHOOK_SECRET \
+            FRONTEND_URL FRONTEND_URL_PATTERNS ADMIN_NAME ADMIN_EMAIL ADMIN_PASSWORD SUBSCRIPTION_FIRST_YEAR_INCLUDED
           printf '%s\n' "$API_ENV_OVERRIDES" | tr -d '\r' | grep -E '^[A-Za-z_][A-Za-z0-9_]*=' >> api.env.overrides || true
           emit web.env.overrides NEXT_PUBLIC_WEB3FORMS_KEY NEXT_PUBLIC_API_URL API_URL SERVER_ACTIONS_ALLOWED_ORIGINS
           printf '%s\n' "$WEB_ENV_OVERRIDES" | tr -d '\r' | grep -E '^[A-Za-z_][A-Za-z0-9_]*=' >> web.env.overrides || true

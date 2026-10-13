@@ -4,10 +4,10 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
-use App\Models\Payment;
 use App\Models\Product;
 use App\Models\Subscription;
 use App\Models\SubscriptionInvoice;
+use App\Support\SalesLedger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Carbon;
 
@@ -20,8 +20,8 @@ class DashboardController extends Controller
             'orders_total' => Order::count(),
             'orders_pending' => Order::where('status', 'pending')->count(),
             'orders_paid' => Order::where('payment_status', 'paid')->count(),
-            'revenue_total' => (int) Payment::where('status', 'paid')->sum('amount'),
-            'revenue_today' => (int) Payment::where('status', 'paid')->whereDate('paid_at', today())->sum('amount'),
+            'revenue_total' => SalesLedger::total(),
+            'revenue_today' => SalesLedger::total(...SalesLedger::day()),
             'products_total' => Product::count(),
             'products_out_of_stock' => Product::where('stock', '<=', 0)->count(),
             'products_low_stock' => Product::whereBetween('stock', [1, 5])->count(),

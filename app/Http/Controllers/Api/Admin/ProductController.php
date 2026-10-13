@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Product;
+use App\Support\Media;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -50,6 +51,7 @@ class ProductController extends Controller
             'stock' => ['required', 'integer', 'min:0'],
             'is_active' => ['required', 'boolean'],
             'featured' => ['required', 'boolean'],
+            ...Media::rules(),
         ]);
 
         $slug = ($data['slug'] ?? null) ?: Str::slug($data['name']);
@@ -75,6 +77,7 @@ class ProductController extends Controller
             'stock' => ['required', 'integer', 'min:0'],
             'is_active' => ['required', 'boolean'],
             'featured' => ['required', 'boolean'],
+            ...Media::rules(),
         ]);
 
         $product->update($data);
@@ -89,5 +92,27 @@ class ProductController extends Controller
         $product->update(['stock' => max(0, $product->stock + $data['delta'])]);
 
         return response()->json(['data' => $product]);
+    }
+
+    /**
+     * DELETE /api/admin/products/{id}
+     *
+     * Products on past orders are deactivated rather than deleted — order_items
+     * restrict the delete, and the row still backs order history.
+     */
+    public function destroy(Product $product): JsonResponse
+    {
+        if ($product->orderItems()->exists()) {
+            $product->update(['is_active' => false, 'featured' => false]);
+
+            return response()->json([
+                'message' => 'Product has past orders — it has been deactivated (hidden from the store) instead of deleted.',
+                'data' => $product->fresh(),
+            ]);
+        }
+
+        $product->delete();
+
+        return response()->json(['message' => 'Product deleted.']);
     }
 }

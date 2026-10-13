@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasMedia;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -9,10 +10,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Fillable([
     'slug', 'name', 'model', 'category', 'icon',
     'price', 'subscription', 'tagline', 'description',
-    'highlights', 'featured', 'stock', 'is_active',
+    'highlights', 'media', 'featured', 'stock', 'is_active',
 ])]
 class Product extends Model
 {
+    use HasMedia;
+
     protected function casts(): array
     {
         return [

@@ -16,6 +16,14 @@ return [
     'default' => env('FILESYSTEM_DISK', 'local'),
 
     /*
+    | Where uploaded product / add-on media lives: `r2` (Cloudflare R2) in
+    | production, `public` (storage/app/public) when R2 isn't configured.
+    | See App\Support\Media and `php artisan media:sync`.
+    */
+
+    'media_disk' => env('MEDIA_DISK', 'public'),
+
+    /*
     |--------------------------------------------------------------------------
     | Filesystem Disks
     |--------------------------------------------------------------------------
@@ -45,6 +53,22 @@ return [
             'visibility' => 'public',
             'throw' => false,
             'report' => false,
+        ],
+
+        // Cloudflare R2 (S3-compatible) — product / add-on photos and video clips.
+        // R2 has no per-object ACLs: public access comes from the bucket's public
+        // r2.dev URL or a custom domain (R2_PUBLIC_URL), so no `visibility` here.
+        'r2' => [
+            'driver' => 's3',
+            'key' => env('R2_ACCESS_KEY_ID'),
+            'secret' => env('R2_SECRET_ACCESS_KEY'),
+            'region' => 'auto',
+            'bucket' => env('R2_BUCKET'),
+            'endpoint' => env('R2_ENDPOINT'), // https://<account-id>.r2.cloudflarestorage.com
+            'url' => env('R2_PUBLIC_URL'),     // https://media.example.com or https://pub-xxxx.r2.dev
+            'use_path_style_endpoint' => true,
+            'throw' => true,
+            'report' => true,
         ],
 
         's3' => [

@@ -76,6 +76,26 @@ class SubscriptionInvoiceController extends Controller
     }
 
     /**
+     * GET /api/admin/subscription-invoices/{invoice} — one invoice with the
+     * billing details the printable copy needs.
+     */
+    public function show(SubscriptionInvoice $invoice): JsonResponse
+    {
+        $invoice->load(['customer', 'subscription']);
+        $customer = $invoice->customer;
+        $subscription = $invoice->subscription;
+
+        return response()->json(['data' => $this->payload($invoice) + [
+            'bill_to' => $customer
+                ? ['name' => $customer->name, 'company' => $customer->company, 'email' => $customer->email, 'phone' => $customer->phone]
+                : null,
+            'quantity' => $subscription?->quantity ?? 1,
+            'unit_price' => $subscription?->unit_price ?? $invoice->amount,
+            'billing_period' => $subscription?->billing_period,
+        ]]);
+    }
+
+    /**
      * POST /api/admin/subscription-invoices/{invoice}/mark-paid
      * Settles the invoice and rolls the subscription's renewal date forward.
      */
@@ -111,6 +131,7 @@ class SubscriptionInvoiceController extends Controller
         return [
             'id' => $i->id,
             'reference' => $i->reference,
+            'issued_at' => $i->created_at?->toDateString(),
             'customer' => $i->customer ? ['id' => $i->customer->id, 'name' => $i->customer->name, 'email' => $i->customer->email] : null,
             'subscription' => $i->subscription
                 ? ['id' => $i->subscription->id, 'reference' => $i->subscription->reference, 'plan_name' => $i->subscription->plan_name]

@@ -52,17 +52,20 @@ class SubscriptionService
         // Only fall back to the default plan's price when the ordered products
         // carry no tracking fee — otherwise the order's own pricing wins, and
         // labelling it with a plan whose price differs would be misleading.
-        $yearlyTotal = (int) $order->subscription_total * 12;
+        $periodTotal = (int) $order->subscription_total * 12;
+        $period = 'yearly';
         $plan = null;
 
-        if ($yearlyTotal <= 0) {
+        if ($periodTotal <= 0) {
+            // Fallback plan bills on its own period (the homepage plans are monthly).
             $plan = SubscriptionPlan::default();
             if (!$plan) {
                 return null;
             }
-            $yearlyTotal = $plan->price * $quantity;
+            $period = $plan->billing_period;
+            $periodTotal = $plan->price * $quantity;
         }
-        if ($yearlyTotal <= 0) {
+        if ($periodTotal <= 0) {
             return null;
         }
 
@@ -79,13 +82,13 @@ class SubscriptionService
             'subscription_plan_id' => $plan?->id,
             'order_id' => $order->id,
             'plan_name' => $plan?->name ?? 'TrackPro GPS Tracking (Yearly)',
-            'billing_period' => 'yearly',
+            'billing_period' => $period,
             'quantity' => $quantity,
-            'unit_price' => intdiv($yearlyTotal, $quantity),
-            'price' => $yearlyTotal,
+            'unit_price' => intdiv($periodTotal, $quantity),
+            'price' => $periodTotal,
             'status' => $firstYearIncluded ? 'active' : 'pending',
             'starts_at' => $start->toDateString(),
-            'renews_at' => $start->copy()->addYear()->toDateString(),
+            'renews_at' => $this->addPeriod($start, $period)->toDateString(),
             'auto_renew' => true,
             'last_paid_at' => $firstYearIncluded ? $start : null,
             'notes' => $firstYearIncluded

@@ -178,6 +178,26 @@ class SubscriptionController extends Controller
         return response()->json(['data' => $invoice->fresh()]);
     }
 
+    /**
+     * DELETE /api/admin/subscriptions/{subscription}
+     *
+     * Removes the subscription and its invoices (cascade). Refused once any
+     * invoice has been paid so collected revenue never vanishes from reports —
+     * cancel those instead.
+     */
+    public function destroy(Subscription $subscription): JsonResponse
+    {
+        if ($subscription->invoices()->where('status', 'paid')->exists()) {
+            return response()->json([
+                'message' => 'This subscription has paid invoices, so it cannot be deleted — cancel it instead.',
+            ], 422);
+        }
+
+        $subscription->delete();
+
+        return response()->json(['message' => 'Subscription deleted.']);
+    }
+
     /** Aggregate figures for the admin Subscriptions header. */
     private function stats(): array
     {

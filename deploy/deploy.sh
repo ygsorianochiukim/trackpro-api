@@ -54,6 +54,8 @@ cd "$ROOT/api"
 composer install --no-dev --optimize-autoloader --no-interaction -q
 find storage/logs -type f -user "$(id -u)" -exec chmod g+w {} + 2>/dev/null || true
 "$PHP" artisan migrate --force --no-interaction
+# public/storage → storage/app/public, where admin-uploaded product media lives.
+[[ -e public/storage ]] || "$PHP" artisan storage:link --no-interaction
 "$PHP" artisan optimize:clear -q
 "$PHP" artisan config:cache
 "$PHP" artisan route:cache

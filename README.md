@@ -31,10 +31,14 @@ composer install
 cp .env.example .env
 php artisan key:generate
 
-# 3. Migrate + seed (creates 9 products and the admin user)
+# 3. Migrate + seed (creates the 12-device lineup and the admin user; set stock in the admin dashboard)
 php artisan migrate --seed
 
-# 4. Run the dev server
+# 4. Serve uploaded photos / videos from public/storage (only first time —
+#    without it every uploaded image shows as broken). Not needed with MEDIA_DISK=r2.
+php artisan storage:link
+
+# 5. Run the dev server
 php artisan serve --host=127.0.0.1 --port=8000
 ```
 

@@ -7,8 +7,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
-    'slug', 'name', 'description', 'price', 'billing_period',
-    'features', 'is_default', 'is_active',
+    'slug', 'name', 'description', 'fleet_size', 'price', 'billing_period',
+    'features', 'recommended_for', 'comparison',
+    'is_popular', 'sort_order', 'is_default', 'is_active',
 ])]
 class SubscriptionPlan extends Model
 {
@@ -17,6 +18,10 @@ class SubscriptionPlan extends Model
         return [
             'price' => 'integer',
             'features' => 'array',
+            'recommended_for' => 'array',
+            'comparison' => 'array',
+            'is_popular' => 'boolean',
+            'sort_order' => 'integer',
             'is_default' => 'boolean',
             'is_active' => 'boolean',
         ];

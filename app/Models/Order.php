@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 #[Fillable([
     'reference', 'customer_id',
     'customer_name', 'customer_email', 'customer_phone',
-    'delivery_address', 'notes',
+    'delivery_address', 'notes', 'invoice',
     'hardware_subtotal', 'subscription_total',
     'status', 'payment_status',
     'paid_at', 'shipped_at',
@@ -25,6 +25,7 @@ class Order extends Model
             'subscription_total' => 'integer',
             'paid_at' => 'datetime',
             'shipped_at' => 'datetime',
+            'invoice' => 'array',
         ];
     }
 

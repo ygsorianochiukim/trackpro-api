@@ -20,6 +20,8 @@ class CustomerAuthController extends Controller
             'name' => $c->name,
             'email' => $c->email,
             'phone' => $c->phone,
+            'company' => $c->company,
+            'fleet_size' => $c->fleet_size,
             'email_verified' => $c->hasVerifiedEmail(),
         ];
     }
@@ -31,10 +33,18 @@ class CustomerAuthController extends Controller
             'name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'email', 'max:120', 'unique:customers,email'],
             'phone' => ['nullable', 'string', 'max:32'],
+            'company' => ['nullable', 'string', 'max:160'],
+            'fleet_size' => ['nullable', 'string', 'max:32'],
+            'vehicle_info' => ['nullable', 'string', 'max:2000'],
             'password' => ['required', 'string', 'min:6'],
+            // "I agree to the Privacy Policy, Terms of Service and Service Agreement"
+            'accept_terms' => ['accepted'],
+        ], [
+            'accept_terms.accepted' => 'Please agree to the Privacy Policy, Terms of Service and Service Agreement.',
         ]);
 
-        $customer = Customer::create($data);
+        unset($data['accept_terms']);
+        $customer = Customer::create($data + ['terms_accepted_at' => now()]);
         $customer->sendEmailVerificationNotification(); // mail driver = log in dev
 
         $token = $customer->createToken('customer-token')->plainTextToken;

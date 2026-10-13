@@ -180,6 +180,23 @@ class CustomerAccountController extends Controller
         ]);
     }
 
+    /** GET /api/customer/invoices/{reference} — one invoice, with what the printable copy needs. */
+    public function showInvoice(Request $request, string $reference): JsonResponse
+    {
+        $customer = $this->customer($request);
+        $invoice = SubscriptionInvoice::with('subscription')
+            ->where('reference', $reference)
+            ->where('customer_id', $customer->id) // own invoices only — 404 otherwise
+            ->firstOrFail();
+        $subscription = $invoice->subscription;
+
+        return response()->json(['data' => $this->invoicePayload($invoice) + [
+            'bill_to' => ['name' => $customer->name, 'company' => $customer->company, 'email' => $customer->email, 'phone' => $customer->phone],
+            'quantity' => $subscription?->quantity ?? 1,
+            'unit_price' => $subscription?->unit_price ?? $invoice->amount,
+        ]]);
+    }
+
     /**
      * POST /api/customer/invoices/{reference}/pay
      *
@@ -323,6 +340,7 @@ class CustomerAccountController extends Controller
     {
         return [
             'reference' => $i->reference,
+            'issued_at' => $i->created_at?->toDateString(),
             'subscription_reference' => $i->subscription?->reference,
             'description' => $i->description,
             'amount' => $i->amount,

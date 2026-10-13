@@ -1,8 +1,15 @@
 <?php
 
+use App\Http\Controllers\Api\AddOnController;
+use App\Http\Controllers\Api\Admin\AddOnController as AdminAddOnController;
 use App\Http\Controllers\Api\Admin\AuthController as AdminAuthController;
+use App\Http\Controllers\Api\Admin\ClientController as AdminClientController;
 use App\Http\Controllers\Api\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Api\Admin\ExpenseCategoryController as AdminExpenseCategoryController;
 use App\Http\Controllers\Api\Admin\ExpenseController as AdminExpenseController;
+use App\Http\Controllers\Api\Admin\WalletController as AdminWalletController;
+use App\Http\Controllers\Api\Admin\InvoiceController as AdminInvoiceController;
+use App\Http\Controllers\Api\Admin\MediaController as AdminMediaController;
 use App\Http\Controllers\Api\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Api\Admin\PaymentController as AdminPaymentController;
 use App\Http\Controllers\Api\Admin\ProductController as AdminProductController;
@@ -28,6 +35,9 @@ use Illuminate\Support\Facades\Route;
 // Catalog
 Route::get('/products', [ProductController::class, 'index']);
 Route::get('/products/{product:slug}', [ProductController::class, 'show']);
+
+// Optional add-ons (homepage "Optional Add-ons" section)
+Route::get('/add-ons', [AddOnController::class, 'index']);
 
 // Published yearly subscription plans (storefront + account UI)
 Route::get('/subscription-plans', [SubscriptionPlanController::class, 'index']);
@@ -75,6 +85,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/customer/subscriptions/{reference}/renew', [CustomerAccountController::class, 'renew']);
     Route::post('/customer/subscriptions/{reference}/cancel', [CustomerAccountController::class, 'cancelSubscription']);
     Route::get('/customer/invoices', [CustomerAccountController::class, 'invoices']);
+    Route::get('/customer/invoices/{reference}', [CustomerAccountController::class, 'showInvoice']);
     Route::post('/customer/invoices/{reference}/pay', [CustomerAccountController::class, 'payInvoice']);
 });
 
@@ -97,6 +108,15 @@ Route::prefix('admin')->group(function () {
         Route::get('/products/{product:id}', [AdminProductController::class, 'show']);
         Route::match(['put', 'patch'], '/products/{product:id}', [AdminProductController::class, 'update']);
         Route::post('/products/{product:id}/stock', [AdminProductController::class, 'adjustStock']);
+        Route::delete('/products/{product:id}', [AdminProductController::class, 'destroy']);
+
+        // Photos / short video clips for products and add-ons
+        Route::post('/media', [AdminMediaController::class, 'store']);
+
+        Route::get('/add-ons', [AdminAddOnController::class, 'index']);
+        Route::post('/add-ons', [AdminAddOnController::class, 'store']);
+        Route::match(['put', 'patch'], '/add-ons/{addOn}', [AdminAddOnController::class, 'update']);
+        Route::delete('/add-ons/{addOn}', [AdminAddOnController::class, 'destroy']);
 
         Route::get('/orders', [AdminOrderController::class, 'index']);
         Route::get('/orders/{order}', [AdminOrderController::class, 'show']);
@@ -108,6 +128,7 @@ Route::prefix('admin')->group(function () {
         // Yearly subscriptions — plans, subscribers, and renewal billing
         Route::get('/subscription-plans', [AdminSubscriptionPlanController::class, 'index']);
         Route::post('/subscription-plans', [AdminSubscriptionPlanController::class, 'store']);
+        Route::put('/subscription-plans/comparison', [AdminSubscriptionPlanController::class, 'comparison']);
         Route::match(['put', 'patch'], '/subscription-plans/{plan}', [AdminSubscriptionPlanController::class, 'update']);
         Route::delete('/subscription-plans/{plan}', [AdminSubscriptionPlanController::class, 'destroy']);
 
@@ -116,18 +137,41 @@ Route::prefix('admin')->group(function () {
         Route::get('/subscriptions/{subscription}', [AdminSubscriptionController::class, 'show']);
         Route::match(['put', 'patch'], '/subscriptions/{subscription}', [AdminSubscriptionController::class, 'update']);
         Route::post('/subscriptions/{subscription}/invoice', [AdminSubscriptionController::class, 'generateInvoice']);
+        Route::delete('/subscriptions/{subscription}', [AdminSubscriptionController::class, 'destroy']);
 
         Route::get('/subscription-invoices', [AdminSubscriptionInvoiceController::class, 'index']);
+        Route::get('/subscription-invoices/{invoice}', [AdminSubscriptionInvoiceController::class, 'show']);
         Route::post('/subscription-invoices/{invoice}/mark-paid', [AdminSubscriptionInvoiceController::class, 'markPaid']);
         Route::post('/subscription-invoices/{invoice}/void', [AdminSubscriptionInvoiceController::class, 'void']);
+
+        // Clients — profile, orders, subscription plan and billing per customer
+        Route::get('/clients', [AdminClientController::class, 'index']);
+        Route::get('/clients/{customer}', [AdminClientController::class, 'show']);
 
         // Customer directory (used by the subscription create form)
         Route::get('/customers', [AdminSubscriptionController::class, 'customers']);
 
         // Sales reports + expenses / cashflow
         Route::get('/reports/sales', [AdminReportsController::class, 'sales']);
+        Route::get('/reports/transactions', [AdminReportsController::class, 'transactions']);
+        Route::get('/reports/today', [AdminReportsController::class, 'today']);
+        Route::get('/orders/{order}/invoice', [AdminInvoiceController::class, 'show']);
+        Route::put('/orders/{order}/invoice', [AdminInvoiceController::class, 'update']);
+        Route::delete('/orders/{order}/invoice', [AdminInvoiceController::class, 'destroy']);
         Route::get('/expenses', [AdminExpenseController::class, 'index']);
         Route::post('/expenses', [AdminExpenseController::class, 'store']);
         Route::delete('/expenses/{expense}', [AdminExpenseController::class, 'destroy']);
+
+        // Expense categories + wallets (money accounts) and transfers between them
+        Route::get('/expense-categories', [AdminExpenseCategoryController::class, 'index']);
+        Route::post('/expense-categories', [AdminExpenseCategoryController::class, 'store']);
+        Route::patch('/expense-categories/{category}', [AdminExpenseCategoryController::class, 'update']);
+        Route::delete('/expense-categories/{category}', [AdminExpenseCategoryController::class, 'destroy']);
+        Route::get('/wallets', [AdminWalletController::class, 'index']);
+        Route::post('/wallets', [AdminWalletController::class, 'store']);
+        Route::patch('/wallets/{wallet}', [AdminWalletController::class, 'update']);
+        Route::delete('/wallets/{wallet}', [AdminWalletController::class, 'destroy']);
+        Route::post('/wallet-transfers', [AdminWalletController::class, 'transfer']);
+        Route::delete('/wallet-transfers/{transfer}', [AdminWalletController::class, 'destroyTransfer']);
     });
 });
