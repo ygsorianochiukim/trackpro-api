@@ -20,7 +20,7 @@ return [
     'allowed_methods' => ['*'],
 
     // Only the configured frontend origin(s) may call the API from a browser.
-    // FRONTEND_URL is a comma-separated list (e.g. "https://trackprogps.com,https://www.trackprogps.com").
+    // FRONTEND_URL is a comma-separated list (e.g. "https://trackprotracking.com,https://www.trackprotracking.com").
     // Falls back to the local Next.js dev server when unset.
     'allowed_origins' => array_values(array_filter(array_map(
         'trim',

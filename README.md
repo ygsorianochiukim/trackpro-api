@@ -216,7 +216,7 @@ php artisan migrate --force
 Edit `config/cors.php`:
 
 ```php
-'allowed_origins' => ['https://trackprogps.com'],
+'allowed_origins' => ['https://trackprotracking.com'],
 ```
 
 ---

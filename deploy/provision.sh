@@ -8,8 +8,8 @@
 set -euo pipefail
 
 ENV_NAME="${1:?env: production or staging}"
-API_HOST="${2:?api host, e.g. api.trackpro-gps.store}"
-WEB_HOST="${3:?web host, e.g. app.trackpro-gps.store}"
+API_HOST="${2:?api host, e.g. api.trackprotracking.com}"
+WEB_HOST="${3:?web host, e.g. trackprotracking.com}"
 API_BRANCH="${4:-main}"
 WEB_BRANCH="${5:-master}"
 

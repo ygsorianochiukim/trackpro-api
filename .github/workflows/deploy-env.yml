@@ -49,7 +49,7 @@ jobs:
           APP_ENV: ${{ vars.APP_ENV || inputs.environment }}
           APP_KEY: ${{ secrets.APP_KEY }}
           APP_DEBUG: ${{ vars.APP_DEBUG || 'false' }}
-          APP_URL: ${{ vars.APP_URL || (inputs.environment == 'production' && 'https://api.trackpro-gps.store' || 'https://staging-api.trackpro-gps.store') }}
+          APP_URL: ${{ vars.APP_URL || (inputs.environment == 'production' && 'https://api.trackprotracking.com' || 'https://staging-api.trackprotracking.com') }}
           LOG_LEVEL: ${{ vars.LOG_LEVEL || (inputs.environment == 'production' && 'error' || 'debug') }}
           DB_CONNECTION: ${{ vars.DB_CONNECTION || 'mysql' }}
           DB_HOST: ${{ secrets.DB_HOST || vars.DB_HOST || '127.0.0.1' }}
@@ -78,7 +78,7 @@ jobs:
           PAYMONGO_SECRET_KEY: ${{ secrets.PAYMONGO_SECRET_KEY }}
           PAYMONGO_PUBLIC_KEY: ${{ secrets.PAYMONGO_PUBLIC_KEY || vars.PAYMONGO_PUBLIC_KEY }}
           PAYMONGO_WEBHOOK_SECRET: ${{ secrets.PAYMONGO_WEBHOOK_SECRET }}
-          FRONTEND_URL: ${{ vars.FRONTEND_URL || (inputs.environment == 'production' && 'https://trackpro-gps.store' || 'https://staging.trackpro-gps.store') }}
+          FRONTEND_URL: ${{ vars.FRONTEND_URL || (inputs.environment == 'production' && 'https://trackprotracking.com,https://www.trackprotracking.com' || 'https://staging.trackprotracking.com') }}
           FRONTEND_URL_PATTERNS: ${{ vars.FRONTEND_URL_PATTERNS }}
           ADMIN_NAME: ${{ vars.ADMIN_NAME || 'TrackPro Admin' }}
           ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL || vars.ADMIN_EMAIL || 'admin@trackprogps.com' }}
@@ -86,7 +86,7 @@ jobs:
           SUBSCRIPTION_FIRST_YEAR_INCLUDED: ${{ vars.SUBSCRIPTION_FIRST_YEAR_INCLUDED || 'true' }}
           API_ENV_OVERRIDES: ${{ secrets.API_ENV_OVERRIDES }}
           NEXT_PUBLIC_WEB3FORMS_KEY: ${{ secrets.NEXT_PUBLIC_WEB3FORMS_KEY || vars.NEXT_PUBLIC_WEB3FORMS_KEY }}
-          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL || (inputs.environment == 'production' && 'https://api.trackpro-gps.store' || 'https://staging-api.trackpro-gps.store') }}
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL || (inputs.environment == 'production' && 'https://api.trackprotracking.com' || 'https://staging-api.trackprotracking.com') }}
           API_URL: ${{ vars.API_URL }}
           SERVER_ACTIONS_ALLOWED_ORIGINS: ${{ vars.SERVER_ACTIONS_ALLOWED_ORIGINS }}
           WEB_ENV_OVERRIDES: ${{ secrets.WEB_ENV_OVERRIDES }}
@@ -148,8 +148,8 @@ jobs:
         run: |
           set -euo pipefail
           case "$ENV_NAME" in
-            production) api=https://api.trackpro-gps.store; web=https://trackpro-gps.store ;;
-            staging)    api=https://staging-api.trackpro-gps.store; web=https://staging.trackpro-gps.store ;;
+            production) api=https://api.trackprotracking.com; web=https://trackprotracking.com ;;
+            staging)    api=https://staging-api.trackprotracking.com; web=https://staging.trackprotracking.com ;;
           esac
           code=$(curl -s -o /dev/null -w '%{http_code}' --retry 3 --retry-delay 5 "$api/up")
           echo "GET $api/up -> $code"; [ "$code" = 200 ]

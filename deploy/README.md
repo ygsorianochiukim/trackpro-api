@@ -5,8 +5,8 @@ databases, nginx vhosts, ports and systemd units.
 
 | Env | Folder | API | Site | Branches (api / web) |
 |---|---|---|---|---|
-| production | `/var/www/trackpro/production/{api,web}` | `api.trackpro-gps.store` → :3030 | `app.trackpro-gps.store` → :3031 | `main` / `master` |
-| staging | `/var/www/trackpro/staging/{api,web}` | `staging-api.trackpro-gps.store` → :3040 | `staging.trackpro-gps.store` → :3041 | `main` / `master` |
+| production | `/var/www/trackpro/production/{api,web}` | `api.trackprotracking.com` → :3030 | `trackprotracking.com` → :3031 | `main` / `master` |
+| staging | `/var/www/trackpro/staging/{api,web}` | `staging-api.trackprotracking.com` → :3040 | `staging.trackprotracking.com` → :3041 | `main` / `master` |
 
 Cargo Rush stays in `/var/www/cargo-rush` on ports 3010/3011/3020/3021.
 
@@ -23,12 +23,12 @@ Cargo Rush stays in `/var/www/cargo-rush` on ports 3010/3011/3020/3021.
 ssh root@148.113.192.33
 git clone https://github.com/ygsorianochiukim/trackpro-api.git /tmp/trackpro-api
 
-EXTRA_ORIGINS=https://trackpro-gps.store,https://www.trackpro-gps.store \
+EXTRA_ORIGINS=https://www.trackprotracking.com \
   bash /tmp/trackpro-api/deploy/provision.sh production \
-  api.trackpro-gps.store app.trackpro-gps.store main master
+  api.trackprotracking.com trackprotracking.com main master
 
 bash /tmp/trackpro-api/deploy/provision.sh staging \
-  staging-api.trackpro-gps.store staging.trackpro-gps.store main master
+  staging-api.trackprotracking.com staging.trackprotracking.com main master
 ```
 
 Staging runs the same branches as production, on its own database. To give it
@@ -36,7 +36,13 @@ its own branches later: `git -C /var/www/trackpro/staging/api switch -c staging 
 (same for `web`), then deploy.
 
 Then add the printed blocks to the Caddyfile and reload Caddy. Caddy issues
-the certificates.
+the certificates. For production also redirect `www` to the apex:
+
+```
+www.trackprotracking.com {
+    redir https://trackprotracking.com{uri} permanent
+}
+```
 
 Fill in `/var/www/trackpro/<env>/api/.env`: `MAIL_PASSWORD`, `PAYMONGO_*`,
 `ADMIN_EMAIL`, `ADMIN_PASSWORD` — then `php8.5 artisan config:cache`.
@@ -100,9 +106,9 @@ caches, rebuilds Next.js, restarts the site, and checks `/up`.
 
 ## After cutover
 
-- PayMongo webhook → `https://api.trackpro-gps.store/api/paymongo/webhook`
-- Vercel storefront (`@`): set `NEXT_PUBLIC_API_URL` / `API_URL` to
-  `https://api.trackpro-gps.store` and redeploy.
+- PayMongo webhook → `https://api.trackprotracking.com/api/paymongo/webhook`
+- Any Vercel preview of the storefront: set `NEXT_PUBLIC_API_URL` / `API_URL` to
+  `https://api.trackprotracking.com` and redeploy.
 
 ## Logs
 
