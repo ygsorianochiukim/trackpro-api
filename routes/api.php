@@ -148,6 +148,8 @@ Route::prefix('admin')->group(function () {
         Route::get('/clients', [AdminClientController::class, 'index']);
         Route::post('/clients', [AdminClientController::class, 'store']);
         Route::get('/clients/{customer}', [AdminClientController::class, 'show']);
+        Route::put('/clients/{customer}', [AdminClientController::class, 'update']);
+        Route::delete('/clients/{customer}', [AdminClientController::class, 'destroy']);
 
         // Customer directory (used by the subscription create form)
         Route::get('/customers', [AdminSubscriptionController::class, 'customers']);

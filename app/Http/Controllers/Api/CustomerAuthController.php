@@ -113,7 +113,7 @@ class CustomerAuthController extends Controller
             $customer->markEmailAsVerified();
         }
 
-        $frontend = rtrim((string) env('FRONTEND_URL', 'http://localhost:3000'), '/');
+        $frontend = config('app.frontend_url');
         return redirect("{$frontend}/?verified=1");
     }
 }

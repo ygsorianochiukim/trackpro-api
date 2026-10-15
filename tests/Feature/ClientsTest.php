@@ -116,4 +116,70 @@ class ClientsTest extends TestCase
 
         $this->withToken($token)->getJson('/api/admin/clients')->assertForbidden();
     }
+
+    public function test_admin_can_edit_a_client(): void
+    {
+        $this->signup();
+        $customer = Customer::firstOrFail();
+        $token = User::factory()->create()->createToken('admin', ['admin'])->plainTextToken;
+
+        $this->withToken($token)->putJson("/api/admin/clients/{$customer->id}", [
+            'name' => 'Juan D. Cruz',
+            'email' => 'juan.cruz@example.com',
+            'company' => 'JDC Logistics',
+            'phone' => null,
+        ])->assertOk()->assertJsonPath('data.email', 'juan.cruz@example.com');
+
+        $customer->refresh();
+        $this->assertSame('JDC Logistics', $customer->company);
+        $this->assertNull($customer->phone);
+        // Blank password leaves the existing one alone.
+        $this->postJson('/api/customer/login', ['email' => 'juan.cruz@example.com', 'password' => 'secret123'])->assertOk();
+    }
+
+    public function test_editing_a_client_rejects_another_clients_email(): void
+    {
+        $this->signup();
+        $this->signup(['email' => 'other@example.com']);
+        $customer = Customer::where('email', 'juan@example.com')->firstOrFail();
+        $token = User::factory()->create()->createToken('admin', ['admin'])->plainTextToken;
+
+        $this->withToken($token)->putJson("/api/admin/clients/{$customer->id}", [
+            'name' => 'Juan', 'email' => 'other@example.com',
+        ])->assertStatus(422)->assertJsonValidationErrors('email');
+    }
+
+    public function test_admin_can_delete_a_client_without_an_active_plan(): void
+    {
+        $this->signup();
+        $customer = Customer::firstOrFail();
+        $token = User::factory()->create()->createToken('admin', ['admin'])->plainTextToken;
+
+        $this->withToken($token)->deleteJson("/api/admin/clients/{$customer->id}")->assertOk();
+        $this->assertDatabaseMissing('customers', ['id' => $customer->id]);
+    }
+
+    public function test_client_with_an_active_plan_cannot_be_deleted(): void
+    {
+        $this->signup();
+        $customer = Customer::firstOrFail();
+        $customer->subscriptions()->forceCreate([
+            'reference' => 'SUB-TEST1', 'plan_name' => 'Basic', 'unit_price' => 100, 'price' => 100,
+            'status' => 'active', 'starts_at' => now(), 'renews_at' => now()->addYear(),
+        ]);
+        $token = User::factory()->create()->createToken('admin', ['admin'])->plainTextToken;
+
+        $this->withToken($token)->deleteJson("/api/admin/clients/{$customer->id}")->assertStatus(422);
+        $this->assertDatabaseHas('customers', ['id' => $customer->id]);
+    }
+
+    public function test_reset_link_uses_configured_frontend_url(): void
+    {
+        config(['app.frontend_url' => 'https://trackprotracking.com']);
+        $this->signup();
+        $customer = Customer::firstOrFail();
+
+        $mail = (new CustomerResetPassword('tok123'))->toMail($customer);
+        $this->assertStringStartsWith('https://trackprotracking.com/reset-password?token=tok123', $mail->actionUrl);
+    }
 }

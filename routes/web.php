@@ -14,5 +14,5 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', fn () => response()->json([
     'name' => config('app.name'),
     'status' => 'ok',
-    'frontend' => env('FRONTEND_URL'),
+    'frontend' => config('app.frontend_url'),
 ]));

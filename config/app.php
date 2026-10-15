@@ -55,6 +55,14 @@ return [
     'url' => env('APP_URL', 'http://localhost'),
 
     /*
+    | Storefront (Next.js) origin used in emailed links and redirects.
+    | FRONTEND_URL may list several comma-separated origins for CORS; links use
+    | the first one. Read here rather than via env() at runtime, because after
+    | `php artisan config:cache` env() returns null outside config files.
+    */
+    'frontend_url' => rtrim(trim(explode(',', (string) env('FRONTEND_URL', 'http://localhost:3000'))[0]), '/'),
+
+    /*
     |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------

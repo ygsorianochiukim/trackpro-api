@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Str;
 
 /**
@@ -93,6 +95,65 @@ class ClientController extends Controller
             'data' => $this->summary($customer),
             'invite_sent' => $sendInvite,
         ], 201);
+    }
+
+    /**
+     * PUT /api/admin/clients/{customer} — edit a client's profile. A new
+     * password is optional; leaving it blank keeps the current one.
+     */
+    public function update(Request $request, Customer $customer): JsonResponse
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:120'],
+            'email' => ['required', 'email', 'max:120', Rule::unique('customers', 'email')->ignore($customer->id)],
+            'phone' => ['nullable', 'string', 'max:32'],
+            'company' => ['nullable', 'string', 'max:160'],
+            'fleet_size' => ['nullable', 'string', 'max:32'],
+            'vehicle_info' => ['nullable', 'string', 'max:2000'],
+            'password' => ['nullable', 'string', 'min:6'],
+        ]);
+
+        if (empty($data['password'])) {
+            unset($data['password']);
+        }
+
+        $customer->update($data);
+
+        return response()->json(['data' => $this->summary($customer)]);
+    }
+
+    /**
+     * DELETE /api/admin/clients/{customer}
+     *
+     * Refused while the client has an active plan or paid invoices — those are
+     * financial records. Otherwise their unpaid invoices and inactive
+     * subscriptions go with them, and their orders are kept (each order holds
+     * its own snapshot of the contact details) but unlinked from the account.
+     */
+    public function destroy(Customer $customer): JsonResponse
+    {
+        if ($customer->subscriptions()->where('status', 'active')->exists()) {
+            return response()->json([
+                'message' => 'This client has an active subscription — cancel it before deleting the client.',
+            ], 422);
+        }
+
+        if ($customer->subscriptionInvoices()->where('status', 'paid')->exists()) {
+            return response()->json([
+                'message' => 'This client has paid invoices, so they cannot be deleted.',
+            ], 422);
+        }
+
+        DB::transaction(function () use ($customer) {
+            $customer->orders()->update(['customer_id' => null]);
+            $customer->subscriptionInvoices()->delete();
+            $customer->subscriptions()->delete();
+            $customer->tokens()->delete();
+            DB::table('customer_password_reset_tokens')->where('email', $customer->email)->delete();
+            $customer->delete();
+        });
+
+        return response()->json(['message' => "{$customer->name} deleted."]);
     }
 
     /** GET /api/admin/clients/{customer} — profile + orders + subscriptions + billing. */

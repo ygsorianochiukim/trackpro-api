@@ -27,9 +27,7 @@ class CustomerResetPassword extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        $frontend = rtrim((string) env('FRONTEND_URL', 'http://localhost:3000'), '/');
-        // FRONTEND_URL may list several origins for CORS — the email needs one.
-        $frontend = trim(explode(',', $frontend)[0]);
+        $frontend = Config::get('app.frontend_url');
 
         $url = $frontend . '/reset-password?' . http_build_query([
             'token' => $this->token,
