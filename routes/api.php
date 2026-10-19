@@ -163,6 +163,7 @@ Route::prefix('admin')->group(function () {
         Route::delete('/orders/{order}/invoice', [AdminInvoiceController::class, 'destroy']);
         Route::get('/expenses', [AdminExpenseController::class, 'index']);
         Route::post('/expenses', [AdminExpenseController::class, 'store']);
+        Route::match(['put', 'patch'], '/expenses/{expense}', [AdminExpenseController::class, 'update']);
         Route::delete('/expenses/{expense}', [AdminExpenseController::class, 'destroy']);
 
         // Expense categories + wallets (money accounts) and transfers between them

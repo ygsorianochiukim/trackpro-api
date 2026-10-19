@@ -8,6 +8,7 @@ use App\Support\Media;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class ProductController extends Controller
 {
@@ -47,7 +48,7 @@ class ProductController extends Controller
             'tagline' => ['required', 'string', 'max:500'],
             'description' => ['nullable', 'string', 'max:5000'],
             'highlights' => ['nullable', 'array'],
-            'highlights.*' => ['string', 'max:255'],
+            'highlights.*' => ['nullable', 'string', 'max:255'],
             'stock' => ['required', 'integer', 'min:0'],
             'is_active' => ['required', 'boolean'],
             'featured' => ['required', 'boolean'],
@@ -61,7 +62,7 @@ class ProductController extends Controller
             $slug = $base . '-' . $i++;
         }
         $data['slug'] = $slug;
-        $data['highlights'] = array_values(array_filter(array_map('trim', $data['highlights'] ?? [])));
+        $data['highlights'] = array_values(array_filter(array_map(fn ($v) => trim((string) $v), $data['highlights'] ?? [])));
 
         $product = Product::create($data);
 
@@ -72,13 +73,35 @@ class ProductController extends Controller
     public function update(Request $request, Product $product): JsonResponse
     {
         $data = $request->validate([
-            'price' => ['required', 'integer', 'min:0'],
-            'subscription' => ['required', 'integer', 'min:0'],
-            'stock' => ['required', 'integer', 'min:0'],
-            'is_active' => ['required', 'boolean'],
-            'featured' => ['required', 'boolean'],
+            'name' => ['sometimes', 'required', 'string', 'max:255'],
+            'slug' => ['sometimes', 'nullable', 'string', 'max:255', Rule::unique('products', 'slug')->ignore($product->id)],
+            'model' => ['sometimes', 'required', 'string', 'max:255'],
+            'category' => ['sometimes', 'required', 'string', 'max:255'],
+            'icon' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'price' => ['sometimes', 'required', 'integer', 'min:0'],
+            'subscription' => ['sometimes', 'required', 'integer', 'min:0'],
+            'tagline' => ['sometimes', 'required', 'string', 'max:500'],
+            'description' => ['sometimes', 'nullable', 'string', 'max:5000'],
+            'highlights' => ['sometimes', 'nullable', 'array'],
+            'highlights.*' => ['nullable', 'string', 'max:255'],
+            'stock' => ['sometimes', 'required', 'integer', 'min:0'],
+            'is_active' => ['sometimes', 'required', 'boolean'],
+            'featured' => ['sometimes', 'required', 'boolean'],
             ...Media::rules(),
         ]);
+
+        // Blank slug = regenerate it from the (possibly new) name.
+        if (array_key_exists('slug', $data)) {
+            $data['slug'] = Str::slug(($data['slug'] ?? null) ?: ($data['name'] ?? $product->name));
+            $base = $data['slug'];
+            $i = 2;
+            while (Product::where('slug', $data['slug'])->whereKeyNot($product->id)->exists()) {
+                $data['slug'] = $base . '-' . $i++;
+            }
+        }
+        if (array_key_exists('highlights', $data)) {
+            $data['highlights'] = array_values(array_filter(array_map(fn ($v) => trim((string) $v), $data['highlights'] ?? [])));
+        }
 
         $product->update($data);
 

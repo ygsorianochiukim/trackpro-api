@@ -21,7 +21,7 @@ class AddOnController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $this->validated($request);
-        $data['slug'] = $this->uniqueSlug($data['name']);
+        $data['slug'] = $this->uniqueSlug(($data['slug'] ?? null) ?: $data['name']);
         $data['sort_order'] ??= (int) AddOn::max('sort_order') + 1;
 
         $addOn = AddOn::create($data);
@@ -32,7 +32,13 @@ class AddOnController extends Controller
     /** PUT|PATCH /api/admin/add-ons/{addOn} */
     public function update(Request $request, AddOn $addOn): JsonResponse
     {
-        $addOn->update($this->validated($request, $addOn));
+        $data = $this->validated($request, $addOn);
+        // Blank slug = regenerate it from the (possibly new) name.
+        if (array_key_exists('slug', $data)) {
+            $data['slug'] = $this->uniqueSlug(($data['slug'] ?? null) ?: ($data['name'] ?? $addOn->name), $addOn);
+        }
+
+        $addOn->update($data);
 
         return response()->json(['data' => $addOn->fresh()]);
     }
@@ -49,6 +55,7 @@ class AddOnController extends Controller
     {
         $data = $request->validate([
             'name' => [$addOn ? 'sometimes' : 'required', 'string', 'max:120'],
+            'slug' => ['sometimes', 'nullable', 'string', 'max:140'],
             'subtitle' => ['nullable', 'string', 'max:120'],
             'price' => [$addOn ? 'sometimes' : 'required', 'integer', 'min:0'],
             'icon' => ['nullable', 'string', 'max:40'],
@@ -77,12 +84,12 @@ class AddOnController extends Controller
         return $data;
     }
 
-    private function uniqueSlug(string $name): string
+    private function uniqueSlug(string $name, ?AddOn $ignore = null): string
     {
         $base = Str::slug($name) ?: 'add-on';
         $slug = $base;
         $i = 2;
-        while (AddOn::where('slug', $slug)->exists()) {
+        while (AddOn::where('slug', $slug)->when($ignore, fn ($q) => $q->whereKeyNot($ignore->id))->exists()) {
             $slug = "{$base}-{$i}";
             $i++;
         }

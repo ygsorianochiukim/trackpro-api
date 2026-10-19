@@ -22,7 +22,8 @@ class WalletController extends Controller
 
         return response()->json([
             'data' => $wallets,
-            'total' => (int) $wallets->where('is_active', true)->sum('balance'),
+            // Deactivating a wallet doesn't make its money disappear, so inactive ones still count.
+            'total' => (int) $wallets->sum('balance'),
             'transfers' => $transfers,
         ]);
     }

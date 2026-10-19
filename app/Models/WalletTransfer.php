@@ -13,7 +13,7 @@ class WalletTransfer extends Model
     {
         return [
             'amount' => 'integer',
-            'transferred_on' => 'date',
+            'transferred_on' => 'date:Y-m-d',
         ];
     }
 

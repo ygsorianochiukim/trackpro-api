@@ -25,7 +25,7 @@ class Expense extends Model
     {
         return [
             'amount' => 'integer',
-            'incurred_on' => 'date',
+            'incurred_on' => 'date:Y-m-d',
         ];
     }
 }

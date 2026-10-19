@@ -133,23 +133,50 @@ class SubscriptionController extends Controller
     public function update(Request $request, Subscription $subscription): JsonResponse
     {
         $data = $request->validate([
+            'customer_id' => ['nullable', 'integer', 'exists:customers,id'],
+            'subscription_plan_id' => ['nullable', 'integer', 'exists:subscription_plans,id'],
+            'plan_name' => ['nullable', 'string', 'max:120'],
+            'billing_period' => ['nullable', Rule::in(['yearly', 'monthly'])],
             'status' => ['nullable', Rule::in(self::STATUSES)],
             'quantity' => ['nullable', 'integer', 'min:1', 'max:100'],
             'unit_price' => ['nullable', 'integer', 'min:0'],
+            'starts_at' => ['nullable', 'date'],
             'renews_at' => ['nullable', 'date'],
             'auto_renew' => ['nullable', 'boolean'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        if ($request->filled('status') && $data['status'] === 'cancelled') {
-            return response()->json(['data' => $this->payload($this->subscriptions->cancel($subscription))]);
+        $starts = $data['starts_at'] ?? $subscription->starts_at?->toDateString();
+        $renews = $data['renews_at'] ?? $subscription->renews_at?->toDateString();
+        if ($starts && $renews && Carbon::parse($renews)->lte(Carbon::parse($starts))) {
+            return response()->json(['message' => 'The renewal date must be after the start date.'], 422);
         }
 
         $update = array_filter(
             $data,
-            fn ($v, $k) => $v !== null || $k === 'notes',
+            fn ($v, $k) => $v !== null || in_array($k, ['notes', 'subscription_plan_id'], true),
             ARRAY_FILTER_USE_BOTH
         );
+        // Only touch the plan link when the caller sent it (null = custom, no plan).
+        if (!$request->exists('subscription_plan_id')) {
+            unset($update['subscription_plan_id']);
+        }
+        // A plan picked without a label takes the plan's name.
+        if (!empty($update['subscription_plan_id']) && empty($update['plan_name'])
+            && $update['subscription_plan_id'] !== $subscription->subscription_plan_id) {
+            $update['plan_name'] = SubscriptionPlan::find($update['subscription_plan_id'])?->name ?? $subscription->plan_name;
+        }
+
+        if (($update['status'] ?? null) === 'cancelled') {
+            unset($update['status']);
+            $subscription->update($update);
+
+            return response()->json(['data' => $this->payload($this->subscriptions->cancel($subscription)->load(['customer', 'plan']))]);
+        }
+        // Reactivating a cancelled subscription clears its cancellation.
+        if (isset($update['status']) && $subscription->status === 'cancelled') {
+            $update['cancelled_at'] = null;
+        }
 
         // Quantity or unit price changed — recompute the period total.
         $quantity = $update['quantity'] ?? $subscription->quantity;
@@ -232,6 +259,7 @@ class SubscriptionController extends Controller
             'customer' => $s->customer
                 ? ['id' => $s->customer->id, 'name' => $s->customer->name, 'email' => $s->customer->email, 'phone' => $s->customer->phone]
                 : null,
+            'subscription_plan_id' => $s->subscription_plan_id,
             'plan_name' => $s->plan_name,
             'billing_period' => $s->billing_period,
             'quantity' => $s->quantity,
