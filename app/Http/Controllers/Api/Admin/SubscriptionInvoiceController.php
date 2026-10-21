@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\SubscriptionInvoice;
 use App\Services\SubscriptionService;
+use App\Support\InvoiceTemplate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -92,7 +93,29 @@ class SubscriptionInvoiceController extends Controller
             'quantity' => $subscription?->quantity ?? 1,
             'unit_price' => $subscription?->unit_price ?? $invoice->amount,
             'billing_period' => $subscription?->billing_period,
+            'printout' => InvoiceTemplate::forRenewal($invoice),
+            'printout_edited' => $invoice->printout !== null,
         ]]);
+    }
+
+    /**
+     * PUT /api/admin/subscription-invoices/{invoice}/printout — save the
+     * admin's edits to the invoice. The customer's copy shows them too; what
+     * they owe (`amount`) is unchanged.
+     */
+    public function updatePrintout(Request $request, SubscriptionInvoice $invoice): JsonResponse
+    {
+        $invoice->update(['printout' => InvoiceController::validated($request)]);
+
+        return response()->json(['data' => $invoice->printout, 'edited' => true]);
+    }
+
+    /** DELETE /api/admin/subscription-invoices/{invoice}/printout — discard edits. */
+    public function resetPrintout(SubscriptionInvoice $invoice): JsonResponse
+    {
+        $invoice->update(['printout' => null]);
+
+        return response()->json(['data' => InvoiceTemplate::forRenewal($invoice), 'edited' => false]);
     }
 
     /**

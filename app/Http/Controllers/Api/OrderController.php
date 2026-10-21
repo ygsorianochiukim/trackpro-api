@@ -9,6 +9,7 @@ use App\Models\Payment;
 use App\Models\Product;
 use App\Services\PayMongoService;
 use App\Services\SubscriptionService;
+use App\Support\CartPricing;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -46,6 +47,12 @@ class OrderController extends Controller
             'items' => ['required', 'array', 'min:1'],
             'items.*.slug' => ['required', 'string'],
             'items.*.qty' => ['required', 'integer', 'min:1', 'max:100'],
+            'items.*.options' => ['nullable', 'array'],
+            'items.*.options.hardware' => ['nullable', 'string', 'max:120'],
+            'items.*.options.add_ons' => ['nullable', 'array', 'max:20'],
+            'items.*.options.add_ons.*' => ['string', 'max:255'],
+            'items.*.options.bandwidth' => ['nullable', 'string', 'max:60'],
+            'items.*.options.plan' => ['nullable', 'string', 'max:255'],
             'customer.name' => ['required', 'string', 'max:120'],
             'customer.email' => ['required', 'email', 'max:120'],
             'customer.phone' => ['required', 'string', 'max:32'],
@@ -64,6 +71,7 @@ class OrderController extends Controller
 
                 $hardwareSubtotal = 0;
                 $subscriptionTotal = 0;
+                $planTotal = 0;
                 $itemsToCreate = [];
 
                 foreach ($data['items'] as $item) {
@@ -75,18 +83,22 @@ class OrderController extends Controller
                         abort(422, "Insufficient stock for {$product->name} (have {$product->stock}, requested {$item['qty']}).");
                     }
 
-                    $lineTotal = $product->price * $item['qty'];
-                    $hardwareSubtotal += $lineTotal;
-                    $subscriptionTotal += $product->subscription * $item['qty'];
+                    // Hardware option, add-ons, bandwidth and plan — priced server-side.
+                    $line = CartPricing::line($product, $item['options'] ?? [], $item['qty']);
+                    $hardwareSubtotal += $line['line_total'];
+                    $subscriptionTotal += $line['unit_subscription'] * $item['qty'];
+                    $planTotal += $line['plan_total'];
 
                     $itemsToCreate[] = [
                         'product_id' => $product->id,
                         'product_name' => $product->name,
                         'product_model' => $product->model,
-                        'unit_price' => $product->price,
-                        'unit_subscription' => $product->subscription,
+                        'unit_price' => $line['unit_price'],
+                        'unit_subscription' => $line['unit_subscription'],
                         'qty' => $item['qty'],
-                        'line_total' => $lineTotal,
+                        'options' => $line['options'],
+                        'line_total' => $line['line_total'],
+                        'plan_total' => $line['plan_total'],
                     ];
 
                     $product->decrement('stock', $item['qty']);
@@ -102,6 +114,8 @@ class OrderController extends Controller
                     'notes' => $data['customer']['notes'] ?? null,
                     'hardware_subtotal' => $hardwareSubtotal,
                     'subscription_total' => $subscriptionTotal,
+                    'plan_total' => $planTotal,
+                    'total' => $hardwareSubtotal + $planTotal,
                     'status' => 'pending',
                     'payment_status' => 'unpaid',
                 ]);
@@ -174,7 +188,7 @@ class OrderController extends Controller
                 'order_id' => $order->id,
                 'provider' => 'temporary',
                 'payment_method' => 'temporary',
-                'amount' => $order->hardware_subtotal,
+                'amount' => $order->total,
                 'status' => 'paid',
                 'paid_at' => now(),
             ]);
@@ -185,7 +199,7 @@ class OrderController extends Controller
 
         return response()->json([
             'data' => $order->fresh(['items', 'payment']),
-            'subscription' => $subscription?->only(['reference', 'plan_name', 'price', 'status', 'renews_at']),
+            'subscription' => $subscription?->only(['reference', 'plan_name', 'price', 'billing_period', 'status', 'renews_at']),
         ]);
     }
 

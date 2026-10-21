@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AddOnController;
+use App\Http\Controllers\Api\BandwidthPackageController;
 use App\Http\Controllers\Api\Admin\AddOnController as AdminAddOnController;
 use App\Http\Controllers\Api\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Api\Admin\ClientController as AdminClientController;
@@ -8,7 +9,9 @@ use App\Http\Controllers\Api\Admin\DashboardController as AdminDashboardControll
 use App\Http\Controllers\Api\Admin\ExpenseCategoryController as AdminExpenseCategoryController;
 use App\Http\Controllers\Api\Admin\ExpenseController as AdminExpenseController;
 use App\Http\Controllers\Api\Admin\WalletController as AdminWalletController;
+use App\Http\Controllers\Api\Admin\CustomInvoiceController as AdminCustomInvoiceController;
 use App\Http\Controllers\Api\Admin\InvoiceController as AdminInvoiceController;
+use App\Http\Controllers\Api\Admin\InvoiceTemplateController as AdminInvoiceTemplateController;
 use App\Http\Controllers\Api\Admin\MediaController as AdminMediaController;
 use App\Http\Controllers\Api\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Api\Admin\PaymentController as AdminPaymentController;
@@ -38,6 +41,9 @@ Route::get('/products/{product:slug}', [ProductController::class, 'show']);
 
 // Optional add-ons (homepage "Optional Add-ons" section)
 Route::get('/add-ons', [AddOnController::class, 'index']);
+
+// Video bandwidth packages offered in the add-to-cart options
+Route::get('/bandwidth-packages', [BandwidthPackageController::class, 'index']);
 
 // Published yearly subscription plans (storefront + account UI)
 Route::get('/subscription-plans', [SubscriptionPlanController::class, 'index']);
@@ -103,6 +109,8 @@ Route::prefix('admin')->group(function () {
 
         Route::get('/dashboard', [AdminDashboardController::class, 'index']);
 
+        Route::get('/hardware-defaults', [AdminProductController::class, 'hardwareDefaults']);
+        Route::put('/hardware-defaults', [AdminProductController::class, 'updateHardwareDefaults']);
         Route::get('/products', [AdminProductController::class, 'index']);
         Route::post('/products', [AdminProductController::class, 'store']);
         Route::get('/products/{product:id}', [AdminProductController::class, 'show']);
@@ -117,6 +125,8 @@ Route::prefix('admin')->group(function () {
         Route::post('/add-ons', [AdminAddOnController::class, 'store']);
         Route::match(['put', 'patch'], '/add-ons/{addOn}', [AdminAddOnController::class, 'update']);
         Route::delete('/add-ons/{addOn}', [AdminAddOnController::class, 'destroy']);
+        Route::get('/bandwidth-packages', [BandwidthPackageController::class, 'adminIndex']);
+        Route::put('/bandwidth-packages', [BandwidthPackageController::class, 'update']);
 
         Route::get('/orders', [AdminOrderController::class, 'index']);
         Route::get('/orders/{order}', [AdminOrderController::class, 'show']);
@@ -143,6 +153,8 @@ Route::prefix('admin')->group(function () {
         Route::get('/subscription-invoices/{invoice}', [AdminSubscriptionInvoiceController::class, 'show']);
         Route::post('/subscription-invoices/{invoice}/mark-paid', [AdminSubscriptionInvoiceController::class, 'markPaid']);
         Route::post('/subscription-invoices/{invoice}/void', [AdminSubscriptionInvoiceController::class, 'void']);
+        Route::put('/subscription-invoices/{invoice}/printout', [AdminSubscriptionInvoiceController::class, 'updatePrintout']);
+        Route::delete('/subscription-invoices/{invoice}/printout', [AdminSubscriptionInvoiceController::class, 'resetPrintout']);
 
         // Clients — profile, orders, subscription plan and billing per customer
         Route::get('/clients', [AdminClientController::class, 'index']);
@@ -161,6 +173,18 @@ Route::prefix('admin')->group(function () {
         Route::get('/orders/{order}/invoice', [AdminInvoiceController::class, 'show']);
         Route::put('/orders/{order}/invoice', [AdminInvoiceController::class, 'update']);
         Route::delete('/orders/{order}/invoice', [AdminInvoiceController::class, 'destroy']);
+
+        // The invoice template every invoice starts from
+        Route::get('/invoice-template', [AdminInvoiceTemplateController::class, 'show']);
+        Route::put('/invoice-template', [AdminInvoiceTemplateController::class, 'update']);
+
+        // Invoices written from scratch in the invoice editor
+        Route::get('/custom-invoices', [AdminCustomInvoiceController::class, 'index']);
+        Route::get('/custom-invoices/new', [AdminCustomInvoiceController::class, 'blank']);
+        Route::post('/custom-invoices', [AdminCustomInvoiceController::class, 'store']);
+        Route::get('/custom-invoices/{invoice}', [AdminCustomInvoiceController::class, 'show']);
+        Route::put('/custom-invoices/{invoice}', [AdminCustomInvoiceController::class, 'update']);
+        Route::delete('/custom-invoices/{invoice}', [AdminCustomInvoiceController::class, 'destroy']);
         Route::get('/expenses', [AdminExpenseController::class, 'index']);
         Route::post('/expenses', [AdminExpenseController::class, 'store']);
         Route::match(['put', 'patch'], '/expenses/{expense}', [AdminExpenseController::class, 'update']);

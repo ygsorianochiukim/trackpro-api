@@ -9,6 +9,7 @@ use App\Models\SubscriptionInvoice;
 use App\Models\SubscriptionPlan;
 use App\Services\PayMongoService;
 use App\Services\SubscriptionService;
+use App\Support\InvoiceTemplate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -47,7 +48,7 @@ class CustomerAccountController extends Controller
         $recentOrders = $customer->orders()
             ->latest()
             ->limit(5)
-            ->get(['id', 'reference', 'hardware_subtotal', 'status', 'payment_status', 'created_at']);
+            ->get(['id', 'reference', 'hardware_subtotal', 'total', 'status', 'payment_status', 'created_at']);
 
         return response()->json([
             'customer' => $this->customerPayload($customer),
@@ -194,6 +195,8 @@ class CustomerAccountController extends Controller
             'bill_to' => ['name' => $customer->name, 'company' => $customer->company, 'email' => $customer->email, 'phone' => $customer->phone],
             'quantity' => $subscription?->quantity ?? 1,
             'unit_price' => $subscription?->unit_price ?? $invoice->amount,
+            // The invoice itself, on the company template — with any edits the admin saved.
+            'printout' => InvoiceTemplate::forRenewal($invoice),
         ]]);
     }
 

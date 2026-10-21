@@ -33,7 +33,7 @@ class ClientController extends Controller
                 'subscriptions as active_subscriptions_count' => fn ($q) => $q->where('status', 'active'),
                 'subscriptionInvoices as unpaid_invoices_count' => fn ($q) => $q->whereIn('status', ['unpaid', 'awaiting']),
             ])
-            ->withSum(['orders as total_spent' => fn ($q) => $q->where('payment_status', 'paid')], 'hardware_subtotal')
+            ->withSum(['orders as total_spent' => fn ($q) => $q->where('payment_status', 'paid')], 'total')
             ->latest()
             ->paginate(15)
             ->withQueryString();
@@ -162,7 +162,7 @@ class ClientController extends Controller
         $orders = $customer->orders()
             ->withCount('items')
             ->latest()
-            ->get(['id', 'reference', 'customer_id', 'hardware_subtotal', 'subscription_total', 'status', 'payment_status', 'paid_at', 'created_at']);
+            ->get(['id', 'reference', 'customer_id', 'hardware_subtotal', 'subscription_total', 'total', 'status', 'payment_status', 'paid_at', 'created_at']);
 
         $subscriptions = $customer->subscriptions()
             ->latest()
@@ -181,7 +181,7 @@ class ClientController extends Controller
                 'subscriptions' => $subscriptions,
                 'invoices' => $invoices,
                 'totals' => [
-                    'hardware_paid' => (int) $orders->where('payment_status', 'paid')->sum('hardware_subtotal'),
+                    'hardware_paid' => (int) $orders->where('payment_status', 'paid')->sum('total'),
                     'billing_paid' => (int) $invoices->where('status', 'paid')->sum('amount'),
                     'billing_outstanding' => (int) $invoices->whereIn('status', ['unpaid', 'awaiting'])->sum('amount'),
                 ],

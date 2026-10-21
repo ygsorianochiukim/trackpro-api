@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'reference', 'customer_id',
     'customer_name', 'customer_email', 'customer_phone',
     'delivery_address', 'notes', 'invoice',
-    'hardware_subtotal', 'subscription_total',
+    'hardware_subtotal', 'subscription_total', 'plan_total', 'total',
     'status', 'payment_status',
     'paid_at', 'shipped_at',
 ])]
@@ -23,6 +23,8 @@ class Order extends Model
         return [
             'hardware_subtotal' => 'integer',
             'subscription_total' => 'integer',
+            'plan_total' => 'integer',
+            'total' => 'integer',
             'paid_at' => 'datetime',
             'shipped_at' => 'datetime',
             'invoice' => 'array',

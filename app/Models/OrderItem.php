@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'order_id', 'product_id',
     'product_name', 'product_model',
     'unit_price', 'unit_subscription',
-    'qty', 'line_total',
+    'qty', 'options', 'line_total', 'plan_total',
 ])]
 class OrderItem extends Model
 {
@@ -21,6 +21,8 @@ class OrderItem extends Model
             'unit_subscription' => 'integer',
             'qty' => 'integer',
             'line_total' => 'integer',
+            'options' => 'array',
+            'plan_total' => 'integer',
         ];
     }
 

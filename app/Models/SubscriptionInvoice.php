@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'reference', 'subscription_id', 'customer_id',
     'description', 'amount', 'period_start', 'period_end', 'due_date',
     'status', 'provider', 'provider_link_id', 'provider_payment_id',
-    'payment_method', 'checkout_url', 'paid_at',
+    'payment_method', 'checkout_url', 'paid_at', 'printout',
 ])]
 class SubscriptionInvoice extends Model
 {
@@ -25,6 +25,7 @@ class SubscriptionInvoice extends Model
             'period_end' => 'date',
             'due_date' => 'date',
             'paid_at' => 'datetime',
+            'printout' => 'array',
         ];
     }
 

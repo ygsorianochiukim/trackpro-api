@@ -46,6 +46,13 @@ class SubscriptionService
         }
 
         $order->loadMissing('items');
+
+        // Platform subscriptions the customer picked in the cart — first period paid with the order.
+        $chosen = $order->items->filter(fn ($item) => !empty($item->options['plan']));
+        if ($chosen->isNotEmpty()) {
+            return $this->provisionChosenPlans($order, $chosen);
+        }
+
         $quantity = max(1, (int) $order->items->sum('qty'));
 
         // The catalog stores a MONTHLY fee per device; subscriptions bill yearly.
@@ -102,6 +109,48 @@ class SubscriptionService
         }
 
         return $subscription;
+    }
+
+    /**
+     * One active subscription per plan + bandwidth combination in the order,
+     * covering every device ordered with it. The order's total already paid the
+     * first period, so renewals start one period from the payment date.
+     *
+     * @param  \Illuminate\Support\Collection<int, \App\Models\OrderItem>  $items
+     */
+    private function provisionChosenPlans(Order $order, $items): Subscription
+    {
+        $start = ($order->paid_at ?? now())->copy()->startOfDay();
+
+        $groups = $items->groupBy(fn ($item) => $item->options['plan']['slug'] . '|' . ($item->options['bandwidth']['slug'] ?? ''));
+
+        $subscriptions = $groups->map(function ($group) use ($order, $start) {
+            $options = $group->first()->options;
+            $plan = $options['plan'];
+            $bandwidth = $options['bandwidth'] ?? null;
+            $quantity = (int) $group->sum('qty');
+            $unit = (int) $options['plan_unit'];
+
+            return Subscription::create([
+                'reference' => Subscription::nextReference(),
+                'customer_id' => $order->customer_id,
+                'subscription_plan_id' => SubscriptionPlan::where('slug', $plan['slug'])->value('id'),
+                'order_id' => $order->id,
+                'plan_name' => $bandwidth ? "{$plan['name']} + {$bandwidth['name']}" : $plan['name'],
+                'billing_period' => $plan['billing_period'],
+                'quantity' => $quantity,
+                'unit_price' => $unit,
+                'price' => $unit * $quantity,
+                'status' => 'active',
+                'starts_at' => $start->toDateString(),
+                'renews_at' => $this->addPeriod($start, $plan['billing_period'])->toDateString(),
+                'auto_renew' => true,
+                'last_paid_at' => $start,
+                'notes' => "First period paid with order {$order->reference}.",
+            ]);
+        });
+
+        return $subscriptions->first();
     }
 
     /** Customer-initiated signup to a published plan. Bills period one up front. */

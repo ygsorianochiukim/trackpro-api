@@ -58,7 +58,7 @@ class PaymentController extends Controller
                 'order_id' => $order->id,
                 'provider' => 'manual',
                 'payment_method' => 'manual',
-                'amount' => $order->hardware_subtotal,
+                'amount' => $order->total,
                 'status' => 'paid',
                 'paid_at' => now(),
             ]);

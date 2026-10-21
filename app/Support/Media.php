@@ -62,6 +62,12 @@ class Media
         ];
     }
 
+    /** A single optional uploaded file path, e.g. a hardware option's image. */
+    public static function pathRule(): array
+    {
+        return ['nullable', 'string', 'max:255', 'regex:#^'.self::DIR.'/[A-Za-z0-9._-]+$#'];
+    }
+
     /** @return string[] */
     public static function paths(array $media): array
     {

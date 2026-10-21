@@ -34,6 +34,7 @@ class DashboardController extends Controller
                 'customer_name' => $o->customer_name,
                 'items_count' => $o->items_count,
                 'hardware_subtotal' => $o->hardware_subtotal,
+                'total' => $o->total,
                 'payment_status' => $o->payment_status,
                 'created_at' => $o->created_at,
             ]);

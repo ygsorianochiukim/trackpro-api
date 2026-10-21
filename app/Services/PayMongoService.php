@@ -42,7 +42,7 @@ class PayMongoService
             throw new RuntimeException('PayMongo secret key is not configured.');
         }
 
-        $amountCentavos = $order->hardware_subtotal * 100; // PayMongo uses centavos
+        $amountCentavos = $order->total * 100; // PayMongo uses centavos
         $description = "TrackPro Order {$order->reference}";
 
         $response = $this->postWithAuth('/links', [
@@ -72,7 +72,7 @@ class PayMongoService
             'order_id' => $order->id,
             'provider' => 'paymongo',
             'provider_link_id' => $linkId,
-            'amount' => $order->hardware_subtotal,
+            'amount' => $order->total,
             'status' => 'pending',
             'checkout_url' => $checkoutUrl,
             'raw_payload' => $body,
