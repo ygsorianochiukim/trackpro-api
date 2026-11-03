@@ -22,7 +22,7 @@ class CartOptionsTest extends TestCase
     {
         parent::setUp();
 
-        AddOn::create(['slug' => 'sd-256', 'name' => 'SanDisk 256 GB', 'price' => 900]);
+        AddOn::create(['slug' => 'sd-256', 'name' => 'SanDisk 256 GB', 'price' => 900, 'installation_price' => 300]);
         AddOn::create(['slug' => 'fuse-set', 'name' => '8 PCS Fuse Set', 'price' => 150]);
         AddOn::create(['slug' => 'not-offered', 'name' => 'Other add-on', 'price' => 50]);
 
@@ -78,6 +78,44 @@ class CartOptionsTest extends TestCase
             ->assertJsonPath('order.items.0.options.bandwidth.price', 199);
 
         $this->assertSame(8, $this->dashcam->fresh()->stock);
+    }
+
+    public function test_add_on_installation_is_charged_only_when_asked_and_offered(): void
+    {
+        // sd-256 has an installation fee (300); fuse-set has none, so asking for it is recorded but free.
+        $this->order([[
+            'slug' => 'v7-pro', 'qty' => 2,
+            'options' => [
+                'hardware' => 'Device only', 'plan' => 'test-standard',
+                'add_ons' => ['sd-256', 'fuse-set'], 'add_ons_installation' => ['sd-256', 'fuse-set'],
+            ],
+        ]])
+            ->assertCreated()
+            ->assertJsonPath('order.hardware_subtotal', (5000 + 900 + 300 + 150) * 2)
+            ->assertJsonPath('order.items.0.options.add_ons.0.installation', 300)
+            ->assertJsonPath('order.items.0.options.add_ons.1.installation', 0);
+
+        $this->app['auth']->forgetGuards();
+        Customer::query()->delete();
+        $this->order([[
+            'slug' => 'v7-pro', 'qty' => 1,
+            'options' => ['hardware' => 'Device only', 'plan' => 'test-standard', 'add_ons' => ['sd-256']],
+        ]])
+            ->assertCreated()
+            ->assertJsonPath('order.hardware_subtotal', 5000 + 900)
+            ->assertJsonPath('order.items.0.options.add_ons.0.installation', null);
+    }
+
+    public function test_admin_sets_an_add_on_installation_price(): void
+    {
+        $admin = User::factory()->create()->createToken('admin', ['admin'])->plainTextToken;
+        $id = AddOn::where('slug', 'fuse-set')->value('id');
+
+        $this->withToken($admin)->patchJson("/api/admin/add-ons/{$id}", ['installation_price' => 250])
+            ->assertOk()->assertJsonPath('data.installation_price', 250);
+        $this->app['auth']->forgetGuards();
+
+        $this->getJson('/api/add-ons')->assertOk()->assertJsonFragment(['slug' => 'fuse-set', 'installation_price' => 250]);
     }
 
     public function test_yearly_plan_charges_twelve_months_of_bandwidth(): void

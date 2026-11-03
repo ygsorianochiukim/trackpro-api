@@ -14,7 +14,7 @@ class AddOnController extends Controller
         $addOns = AddOn::where('is_active', true)
             ->orderBy('sort_order')
             ->orderBy('id')
-            ->get(['id', 'slug', 'name', 'subtitle', 'price', 'icon', 'description', 'features', 'devices', 'media', 'warranty']);
+            ->get(['id', 'slug', 'name', 'subtitle', 'price', 'installation_price', 'icon', 'description', 'features', 'devices', 'media', 'warranty']);
 
         return response()->json(['data' => $addOns]);
     }

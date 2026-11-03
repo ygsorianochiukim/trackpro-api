@@ -15,7 +15,7 @@ use App\Models\SubscriptionPlan;
 class CartPricing
 {
     /**
-     * @param  array{hardware?: ?string, add_ons?: ?array, bandwidth?: ?string, plan?: ?string}  $picked
+     * @param  array{hardware?: ?string, add_ons?: ?array, add_ons_installation?: ?array, bandwidth?: ?string, plan?: ?string}  $picked
      * @return array{unit_price: int, unit_subscription: int, line_total: int, plan_total: int, options: ?array}
      */
     public static function line(Product $product, array $picked, int $qty): array
@@ -35,8 +35,10 @@ class CartPricing
             $unit = $hardware['price'];
         }
 
-        // Add-ons — one-time, only those offered with this product.
+        // Add-ons — one-time, only those offered with this product. Each adds its
+        // installation fee when the customer asked for it to be installed.
         $addOnSlugs = array_values(array_unique($picked['add_ons'] ?? []));
+        $withInstallation = $picked['add_ons_installation'] ?? [];
         $addOns = [];
         if ($addOnSlugs) {
             // Never configured (null) = every active add-on is offered; [] = none.
@@ -47,8 +49,17 @@ class CartPricing
                 if (!$addOn || ($offered !== null && !in_array($slug, $offered, true))) {
                     abort(422, "That add-on is no longer available for {$name}.");
                 }
-                $addOns[] = ['slug' => $addOn->slug, 'name' => $addOn->name, 'price' => $addOn->price];
-                $unit += $addOn->price;
+                // Asked to be installed: the add-on's fee (0 when none is set). Null = not requested.
+                $installation = in_array($slug, $withInstallation, true)
+                    ? (int) ($addOn->installation_price ?? 0)
+                    : null;
+                $addOns[] = [
+                    'slug' => $addOn->slug,
+                    'name' => $addOn->name,
+                    'price' => $addOn->price,
+                    'installation' => $installation,
+                ];
+                $unit += $addOn->price + ($installation ?? 0);
             }
         }
 

@@ -123,10 +123,18 @@ class InvoiceController extends Controller
             $lines = [[
                 'description' => $hardware ? "{$product} — {$hardware['name']}" : $product,
                 'qty' => $i->qty,
-                'unit_price' => $i->unit_price - array_sum(array_column($addOns, 'price')),
+                'unit_price' => $i->unit_price - array_sum(array_map(
+                    fn ($a) => $a['price'] + ($a['installation'] ?? 0),
+                    $addOns
+                )),
             ]];
             foreach ($addOns as $addOn) {
-                $lines[] = ['description' => "Add-on: {$addOn['name']}", 'qty' => $i->qty, 'unit_price' => $addOn['price']];
+                $installation = $addOn['installation'] ?? null;
+                $lines[] = [
+                    'description' => "Add-on: {$addOn['name']}" . ($installation !== null ? ' (with installation)' : ''),
+                    'qty' => $i->qty,
+                    'unit_price' => $addOn['price'] + ($installation ?? 0),
+                ];
             }
             if ($plan) {
                 $period = $plan['billing_period'] === 'yearly' ? 'first year' : 'first month';

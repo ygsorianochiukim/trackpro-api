@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\CustomInvoice;
 use App\Models\Payment;
 use App\Models\SubscriptionInvoice;
 use App\Support\SalesLedger;
@@ -15,8 +16,8 @@ class ReportsController extends Controller
 {
     /**
      * GET /api/admin/reports/sales
-     * Consolidated paid sales — order payments and subscription renewals — by
-     * day (14d), month (12mo), and year (5y).
+     * Consolidated paid sales — order payments, subscription renewals and paid
+     * hand-written invoices — by day (14d), month (12mo), and year (5y).
      * Aggregated in PHP so it works on both SQLite and MySQL; days, months and
      * years are Philippine time (see SalesLedger::TIMEZONE).
      */
@@ -122,6 +123,7 @@ class ReportsController extends Controller
                 'count' => $entries->count(),
                 'orders' => $entries->where('source', 'order')->count(),
                 'renewals' => $entries->where('source', 'subscription')->count(),
+                'invoices' => $entries->where('source', 'custom')->count(),
             ],
         ]);
     }
@@ -135,10 +137,51 @@ class ReportsController extends Controller
         $renewals = SubscriptionInvoice::with(['customer', 'subscription'])
             ->findMany($entries->where('source', 'subscription')->pluck('source_id'))
             ->keyBy('id');
+        $custom = CustomInvoice::findMany($entries->where('source', 'custom')->pluck('source_id'))->keyBy('id');
 
-        return $entries->map(fn ($e) => $e->source === 'order'
-            ? $this->orderRow($payments[$e->source_id])
-            : $this->renewalRow($renewals[$e->source_id]))->values();
+        return $entries->map(fn ($e) => match ($e->source) {
+            'order' => $this->orderRow($payments[$e->source_id]),
+            'subscription' => $this->renewalRow($renewals[$e->source_id]),
+            default => $this->customRow($custom[$e->source_id]),
+        })->values();
+    }
+
+    /** A hand-written invoice (Admin → Invoices) that was marked paid. */
+    private function customRow(CustomInvoice $i): array
+    {
+        $invoice = $i->invoice;
+        $billTo = $invoice['bill_to'] ?? [];
+
+        return [
+            'type' => 'custom',
+            'id' => $i->id,
+            'paid_at' => $i->paid_at,
+            'amount' => $i->total,
+            'method' => $i->payment_method,
+            'order' => null,
+            'renewal' => null,
+            'custom' => [
+                'id' => $i->id,
+                'number' => $i->number,
+                'title' => $invoice['title'] ?? 'Invoice',
+                'date' => $i->date->toDateString(),
+                'discount' => (int) ($invoice['discount'] ?? 0),
+                'items' => collect($invoice['items'] ?? [])->map(fn ($item) => [
+                    'name' => $item['description'],
+                    'qty' => (int) $item['qty'],
+                    'unit_price' => (int) $item['unit_price'],
+                    'line_total' => (int) $item['qty'] * (int) $item['unit_price'],
+                ])->values(),
+            ],
+            'customer' => [
+                'id' => null,
+                'name' => $i->customer_name,
+                'email' => $billTo['email'] ?? null,
+                'phone' => $billTo['phone'] ?? null,
+                'company' => $billTo['company'] ?? null,
+                'address' => $billTo['address'] ?? null,
+            ],
+        ];
     }
 
     private function orderRow(Payment $p): array
@@ -165,6 +208,7 @@ class ReportsController extends Controller
                 ]),
             ],
             'renewal' => null,
+            'custom' => null,
             'customer' => [
                 'id' => $p->order->customer_id,
                 'name' => $p->order->customer_name,
@@ -195,6 +239,7 @@ class ReportsController extends Controller
                 'period_start' => $i->period_start?->toDateString(),
                 'period_end' => $i->period_end?->toDateString(),
             ],
+            'custom' => null,
             'customer' => [
                 'id' => $i->customer_id,
                 'name' => $i->customer?->name ?? '—',

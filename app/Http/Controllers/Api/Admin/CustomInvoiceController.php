@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\CustomInvoice;
 use App\Support\InvoiceTemplate;
+use App\Support\SalesLedger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -64,7 +65,52 @@ class CustomInvoiceController extends Controller
     /** GET /api/admin/custom-invoices/{invoice} */
     public function show(CustomInvoice $invoice): JsonResponse
     {
-        return response()->json(['id' => $invoice->id, 'data' => InvoiceTemplate::fill($invoice->invoice), 'edited' => true]);
+        return response()->json([
+            'id' => $invoice->id,
+            'data' => InvoiceTemplate::fill($invoice->invoice),
+            'edited' => true,
+            'payment' => $this->payment($invoice),
+        ]);
+    }
+
+    /**
+     * POST /api/admin/custom-invoices/{invoice}/mark-paid
+     * Records the money as received — from then on the invoice counts as a
+     * sale in the reports. Idempotent: an already-paid invoice is left as is.
+     */
+    public function markPaid(Request $request, CustomInvoice $invoice): JsonResponse
+    {
+        $data = $request->validate([
+            'payment_method' => ['nullable', 'string', 'max:40'],
+            // When the cash actually came in (default now) — so back-dated sales land on the right day.
+            'paid_at' => ['nullable', 'date'],
+        ]);
+
+        if (!$invoice->isPaid()) {
+            $invoice->update([
+                'paid_at' => !empty($data['paid_at']) ? Carbon::parse($data['paid_at'], SalesLedger::TIMEZONE) : now(),
+                'payment_method' => $data['payment_method'] ?? 'manual',
+            ]);
+        }
+
+        return response()->json(['id' => $invoice->id, 'payment' => $this->payment($invoice->fresh())]);
+    }
+
+    /** DELETE /api/admin/custom-invoices/{invoice}/mark-paid — undo: it leaves the sales reports again. */
+    public function unmarkPaid(CustomInvoice $invoice): JsonResponse
+    {
+        $invoice->update(['paid_at' => null, 'payment_method' => null]);
+
+        return response()->json(['id' => $invoice->id, 'payment' => $this->payment($invoice->fresh())]);
+    }
+
+    private function payment(CustomInvoice $i): array
+    {
+        return [
+            'paid' => $i->isPaid(),
+            'paid_at' => $i->paid_at?->toIso8601String(),
+            'payment_method' => $i->payment_method,
+        ];
     }
 
     /** PUT /api/admin/custom-invoices/{invoice} */
@@ -93,6 +139,8 @@ class CustomInvoiceController extends Controller
             'customer_name' => $i->customer_name,
             'company' => $i->invoice['bill_to']['company'] ?? null,
             'total' => $i->total,
+            'paid_at' => $i->paid_at?->toIso8601String(),
+            'payment_method' => $i->payment_method,
             'updated_at' => $i->updated_at?->toIso8601String(),
         ];
     }

@@ -51,6 +51,9 @@ class OrderController extends Controller
             'items.*.options.hardware' => ['nullable', 'string', 'max:120'],
             'items.*.options.add_ons' => ['nullable', 'array', 'max:20'],
             'items.*.options.add_ons.*' => ['string', 'max:255'],
+            // Add-ons (by slug) the customer wants installed — charged the add-on's installation price.
+            'items.*.options.add_ons_installation' => ['nullable', 'array', 'max:20'],
+            'items.*.options.add_ons_installation.*' => ['string', 'max:255'],
             'items.*.options.bandwidth' => ['nullable', 'string', 'max:60'],
             'items.*.options.plan' => ['nullable', 'string', 'max:255'],
             'customer.name' => ['required', 'string', 'max:120'],

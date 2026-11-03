@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\CustomInvoice;
 use App\Models\Customer;
 use App\Models\Order;
 use App\Models\Payment;
@@ -44,6 +45,50 @@ class SalesReportTest extends TestCase
         ];
         SubscriptionInvoice::create($base + ['reference' => 'INV-000004', 'status' => 'paid', 'payment_method' => 'qrph', 'paid_at' => now()]);
         SubscriptionInvoice::create(['reference' => 'INV-000005', 'status' => 'unpaid', 'period_start' => today()->addMonth(), 'period_end' => today()->addMonths(2)] + $base); // not a sale
+    }
+
+    public function test_hand_written_invoices_count_as_sales_once_marked_paid(): void
+    {
+        $invoice = (new CustomInvoice)->fillFromInvoice([
+            'number' => 'CI-000001', 'date' => today()->toDateString(),
+            'bill_to' => ['name' => 'Maria Santos', 'company' => 'Santos Hauling', 'email' => null, 'phone' => null, 'address' => null],
+            'items' => [['description' => 'Fuel sensor (walk-in)', 'qty' => 2, 'unit_price' => 2500]],
+            'discount' => 500,
+        ]);
+        $invoice->save();
+
+        // Unpaid: not a sale yet.
+        $this->withToken($this->token)->getJson('/api/admin/reports/sales')->assertJsonPath('totals.today', 3001);
+
+        $this->withToken($this->token)->postJson("/api/admin/custom-invoices/{$invoice->id}/mark-paid", ['payment_method' => 'cash'])
+            ->assertOk()
+            ->assertJsonPath('payment.paid', true)
+            ->assertJsonPath('payment.payment_method', 'cash');
+
+        $this->withToken($this->token)->getJson('/api/admin/reports/sales')
+            ->assertJsonPath('totals.today', 3001 + 4500)
+            ->assertJsonPath('totals.all_time', 7501);
+
+        $today = $this->withToken($this->token)->getJson('/api/admin/reports/today')
+            ->assertJsonPath('totals.invoices', 1)
+            ->assertJsonCount(3, 'data');
+        $row = collect($today->json('data'))->firstWhere('type', 'custom');
+        $this->assertSame(4500, $row['amount']);
+        $this->assertSame('cash', $row['method']);
+        $this->assertSame('CI-000001', $row['custom']['number']);
+        $this->assertSame('Fuel sensor (walk-in)', $row['custom']['items'][0]['name']);
+        $this->assertSame(5000, $row['custom']['items'][0]['line_total']);
+        $this->assertSame('Maria Santos', $row['customer']['name']);
+        $this->assertSame('Santos Hauling', $row['customer']['company']);
+
+        $this->withToken($this->token)->getJson('/api/admin/reports/transactions?q=santos')
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('totals.amount', 4500);
+
+        // Undo: it leaves the reports again.
+        $this->withToken($this->token)->deleteJson("/api/admin/custom-invoices/{$invoice->id}/mark-paid")
+            ->assertOk()->assertJsonPath('payment.paid', false);
+        $this->withToken($this->token)->getJson('/api/admin/reports/sales')->assertJsonPath('totals.today', 3001);
     }
 
     public function test_totals_include_paid_renewals(): void

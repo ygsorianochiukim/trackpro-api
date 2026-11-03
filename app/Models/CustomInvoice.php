@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
-#[Fillable(['number', 'date', 'customer_name', 'total', 'invoice'])]
+#[Fillable(['number', 'date', 'customer_name', 'total', 'invoice', 'paid_at', 'payment_method'])]
 class CustomInvoice extends Model
 {
     protected function casts(): array
@@ -14,7 +14,14 @@ class CustomInvoice extends Model
             'date' => 'date',
             'total' => 'integer',
             'invoice' => 'array',
+            'paid_at' => 'datetime',
         ];
+    }
+
+    /** Paid invoices are sales — see SalesLedger. */
+    public function isPaid(): bool
+    {
+        return $this->paid_at !== null;
     }
 
     /** Suggested number for the next invoice, e.g. CI-000012 (skips any already taken). */

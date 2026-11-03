@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
 #[Fillable([
-    'slug', 'name', 'subtitle', 'price', 'icon', 'description',
+    'slug', 'name', 'subtitle', 'price', 'installation_price', 'icon', 'description',
     'features', 'devices', 'media', 'warranty', 'sort_order', 'is_active',
 ])]
 class AddOn extends Model
@@ -22,6 +22,7 @@ class AddOn extends Model
     {
         return [
             'price' => 'integer',
+            'installation_price' => 'integer',
             'features' => 'array',
             'devices' => 'array',
             'sort_order' => 'integer',

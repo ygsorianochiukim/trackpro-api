@@ -58,6 +58,8 @@ class AddOnController extends Controller
             'slug' => ['sometimes', 'nullable', 'string', 'max:140'],
             'subtitle' => ['nullable', 'string', 'max:120'],
             'price' => [$addOn ? 'sometimes' : 'required', 'integer', 'min:0'],
+            // One-time fee when the customer asks for the add-on to be installed; null / 0 = not offered.
+            'installation_price' => ['nullable', 'integer', 'min:0'],
             'icon' => ['nullable', 'string', 'max:40'],
             'description' => ['nullable', 'string', 'max:1000'],
             'features' => ['nullable', 'array'],

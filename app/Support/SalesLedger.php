@@ -11,8 +11,10 @@ use Illuminate\Support\Facades\DB;
  *
  *  - `order`        — a paid order payment (hardware, plus any first subscription bundled into the order)
  *  - `subscription` — a paid subscription renewal invoice (settled online or marked paid by an admin)
+ *  - `custom`       — an invoice the admin wrote by hand (Admin → Invoices) and marked paid: products
+ *                     or services sold outside the online store
  *
- * A renewal payment never creates a `payments` row, so the two never overlap.
+ * None of the three creates a row in another's table, so they never overlap.
  * Rows are `source`, `source_id`, `amount`, `paid_at`.
  */
 class SalesLedger
@@ -44,10 +46,14 @@ class SalesLedger
             ->where('status', 'paid')
             ->whereNotNull('paid_at');
 
+        $custom = DB::table('custom_invoices')
+            ->selectRaw("'custom' as source, id as source_id, total as amount, paid_at")
+            ->whereNotNull('paid_at');
+
         // Bounds may be in any timezone; stored timestamps are UTC.
         $from = $from?->copy()->utc();
         $to = $to?->copy()->utc();
-        foreach ([$orders, $renewals] as $q) {
+        foreach ([$orders, $renewals, $custom] as $q) {
             $q->when($from, fn ($q) => $q->where('paid_at', '>=', $from))
                 ->when($to, fn ($q) => $q->where('paid_at', '<=', $to));
         }
@@ -67,9 +73,13 @@ class SalesLedger
                     ->where('name', 'like', $term)
                     ->orWhere('email', 'like', $term)
                     ->orWhere('phone', 'like', $term))));
+
+            $custom->where(fn ($c) => $c
+                ->where('number', 'like', $term)
+                ->orWhere('customer_name', 'like', $term));
         }
 
-        return DB::query()->fromSub($orders->unionAll($renewals), 'sales');
+        return DB::query()->fromSub($orders->unionAll($renewals)->unionAll($custom), 'sales');
     }
 
     /** Total received between two moments (either end open). */

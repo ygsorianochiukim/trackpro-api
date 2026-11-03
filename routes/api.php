@@ -10,6 +10,8 @@ use App\Http\Controllers\Api\Admin\ExpenseCategoryController as AdminExpenseCate
 use App\Http\Controllers\Api\Admin\ExpenseController as AdminExpenseController;
 use App\Http\Controllers\Api\Admin\WalletController as AdminWalletController;
 use App\Http\Controllers\Api\Admin\CustomInvoiceController as AdminCustomInvoiceController;
+use App\Http\Controllers\Api\Admin\InstallationController as AdminInstallationController;
+use App\Http\Controllers\Api\Admin\InstallerController as AdminInstallerController;
 use App\Http\Controllers\Api\Admin\InvoiceController as AdminInvoiceController;
 use App\Http\Controllers\Api\Admin\InvoiceTemplateController as AdminInvoiceTemplateController;
 use App\Http\Controllers\Api\Admin\MediaController as AdminMediaController;
@@ -185,6 +187,8 @@ Route::prefix('admin')->group(function () {
         Route::get('/custom-invoices/{invoice}', [AdminCustomInvoiceController::class, 'show']);
         Route::put('/custom-invoices/{invoice}', [AdminCustomInvoiceController::class, 'update']);
         Route::delete('/custom-invoices/{invoice}', [AdminCustomInvoiceController::class, 'destroy']);
+        Route::post('/custom-invoices/{invoice}/mark-paid', [AdminCustomInvoiceController::class, 'markPaid']);
+        Route::delete('/custom-invoices/{invoice}/mark-paid', [AdminCustomInvoiceController::class, 'unmarkPaid']);
         Route::get('/expenses', [AdminExpenseController::class, 'index']);
         Route::post('/expenses', [AdminExpenseController::class, 'store']);
         Route::match(['put', 'patch'], '/expenses/{expense}', [AdminExpenseController::class, 'update']);
@@ -201,5 +205,22 @@ Route::prefix('admin')->group(function () {
         Route::delete('/wallets/{wallet}', [AdminWalletController::class, 'destroy']);
         Route::post('/wallet-transfers', [AdminWalletController::class, 'transfer']);
         Route::delete('/wallet-transfers/{transfer}', [AdminWalletController::class, 'destroyTransfer']);
+
+        // GPS installations — crew with home bases, jobs, the week schedule and the kanban board
+        Route::get('/installers', [AdminInstallerController::class, 'index']);
+        Route::post('/installers', [AdminInstallerController::class, 'store']);
+        Route::match(['put', 'patch'], '/installers/{installer}', [AdminInstallerController::class, 'update']);
+        Route::delete('/installers/{installer}', [AdminInstallerController::class, 'destroy']);
+
+        Route::get('/installations/dashboard', [AdminInstallationController::class, 'dashboard']);
+        Route::get('/installations/suggest', [AdminInstallationController::class, 'suggest']);
+        Route::get('/installations/options', [AdminInstallationController::class, 'options']);
+        Route::get('/installations', [AdminInstallationController::class, 'index']);
+        Route::post('/installations', [AdminInstallationController::class, 'store']);
+        Route::get('/installations/{installation}', [AdminInstallationController::class, 'show']);
+        Route::match(['put', 'patch'], '/installations/{installation}', [AdminInstallationController::class, 'update']);
+        Route::delete('/installations/{installation}', [AdminInstallationController::class, 'destroy']);
+        Route::post('/installations/{installation}/schedule', [AdminInstallationController::class, 'schedule']);
+        Route::post('/installations/{installation}/move', [AdminInstallationController::class, 'move']);
     });
 });
